@@ -1,0 +1,17 @@
+# Environments
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Generated - every file here can be recreated by running the code
+data/
+outputs/
+mlruns/
+unsloth_compiled_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Early drafts kept for comparison, not part of the project
+_drafts/

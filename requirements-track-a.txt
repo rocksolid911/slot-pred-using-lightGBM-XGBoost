@@ -1,0 +1,14 @@
+# Track A - production model (no PyTorch: the deployed service should stay small).
+# More packages get added in the lesson that needs them (shap: A8, mlflow: A9, fastapi: A10, evidently: A11).
+numpy
+pandas
+pyarrow
+scikit-learn
+lightgbm
+xgboost
+matplotlib
+joblib
+
+# Development
+pytest
+ipykernel
