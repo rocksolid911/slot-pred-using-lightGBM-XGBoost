@@ -2,7 +2,7 @@
 
 > **Date:** 2026-10-08 · **Notebook:** [notebooks/A01_framing.ipynb](../notebooks/A01_framing.ipynb) · **Git tag:** `lesson-A1`
 >
-> **Interactive:** [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf) (Lab 1 slot cost, Lab 2 pinball loss, Lab 3 ask the PO). Offline copy: [interactive/index.html](interactive/index.html)
+> **Interactive:** [A01 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc) (slot cost, pinball loss, ask the PO). Offline copy: [interactive/A01-framing.html](interactive/A01-framing.html). All lessons: [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf)
 
 ## In one line
 The right slot isn't the average visit. It's the **quantile set by how much worse an overrun is than idle time**: overrun 4× worse means book the **P80**.

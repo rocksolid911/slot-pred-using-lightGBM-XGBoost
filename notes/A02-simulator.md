@@ -2,7 +2,7 @@
 
 > **Date:** 2026-10-08 · **Notebook:** [notebooks/A02_simulator.ipynb](../notebooks/A02_simulator.ipynb) · **Code:** [slotpred/world.py](../slotpred/world.py), [slotpred/simulate.py](../slotpred/simulate.py) · **Git tag:** `lesson-A2`
 >
-> **Interactive:** [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf) (Lab 4 hidden rule, Lab 5 log-normal noise, Lab 6 z-scores, Lab 7 oracle, Lab 8 heatmap). Offline copy: [interactive/index.html](interactive/index.html)
+> **Interactive:** [A02 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA) (hidden rule, log-normal noise, z-scores, oracle, heatmap). Offline copy: [interactive/A02-simulator.html](interactive/A02-simulator.html). All lessons: [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf)
 
 ## In one line
 **actual minutes = hidden rule × noise**: the rule is what a model can learn; the log-normal noise is what no model can know. Because we wrote both, we know the best score any model could reach.
@@ -356,7 +356,8 @@ No. It's part of the hidden rule and never exported; the model sees only the doc
 </details>
 
 ## In my words
-the oracle MAE is helpful to decide the acceptable error in slot time when predicted by the model , which cant be negative and rounding to 5 is not helpful every time it will cause issue when considering diffrent department who has different noise value and different features.
+- the oracle MAE is the minimu error no model can go belowno matter how good it is,its about how good or perfect is model close to not how much error acceptable
+- visit time cant be nagative and its made of hidden rule * noise and no model can know noise
 
 ## New terms
 Simulator, hidden rule, noise, additive effect, multiplicative effect, log-normal, σ (sigma), z-score, oracle, irreducible error, drift

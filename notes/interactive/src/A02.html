@@ -1,0 +1,261 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-rule">2.1 Hidden rule</a>
+  <a href="#lab-noise">2.2 Log-normal noise</a>
+  <a href="#lab-z">2.3 z-scores</a>
+  <a href="#lab-oracle">2.4 Oracle</a>
+  <a href="#lab-heat">2.5 Heatmap</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>The simulated hospital</h2>
+    <p>actual minutes = hidden rule × noise. A model can learn the rule; nobody can predict the noise. Because we wrote both, we know the best score any model could reach.</p>
+  </div>
+
+  <div class="lab" id="lab-rule">
+    <div class="lab-head"><span class="tag">Lab 2.1</span><h3>The hidden rule, step by step</h3></div>
+    <p class="say">Extra work adds minutes; pace multiplies them; the Dermatology drift is added last. Pick a booking and follow the arithmetic. Defaults: Siddhant's new appointment with Dr Deepak on Monday at HSR.</p>
+    <div class="controls">
+      <div class="ctl"><label for="rDoc">Doctor</label><select id="rDoc"></select></div>
+      <div class="ctl"><label for="rVisit">Visit type</label><select id="rVisit"><option value="new">new</option><option value="follow-up">follow-up</option><option value="review">report review</option></select></div>
+      <div class="ctl"><label for="rClinic">Clinic</label><select id="rClinic"></select></div>
+      <div class="ctl"><label for="rDate">Date <output id="rDay"></output></label><input type="date" id="rDate" value="2026-03-09" min="2026-01-01" max="2026-08-31"></div>
+      <div class="ctl"><label for="rTime">Slot time</label><select id="rTime"></select></div>
+      <div class="ctl"><label for="rAge">Patient age</label><input type="number" id="rAge" min="0" max="100" value="34"></div>
+      <div class="ctl"><label for="rReports">Prior reports</label><input type="number" id="rReports" min="0" max="20" value="2"></div>
+      <div class="ctl"><span class="lbl">Extras</span>
+        <label class="check"><input type="checkbox" id="rInterp"> Interpreter needed</label>
+        <label class="check"><input type="checkbox" id="rTele"> Video consult</label>
+      </div>
+      <div class="ctl"><label for="rQ">Book quantile <output id="rQOut"></output></label><input type="range" id="rQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+    </div>
+    <span class="err" id="rErr" hidden></span>
+    <div class="tablewrap"><table id="ruleTable"></table></div>
+    <div class="formula" id="ruleFormula"></div>
+    <div class="stats">
+      <div class="stat"><span>Expected (rule)</span><strong id="rExp"></strong></div>
+      <div class="stat"><span>Typical, P50</span><strong id="rP50"></strong></div>
+      <div class="stat"><span id="rPqLbl">Safe</span><strong id="rPq"></strong></div>
+      <div class="stat"><span>Slot to book</span><strong id="rSlot"></strong></div>
+    </div>
+    <p class="say sub">The model never sees the doctor's speed or the expected minutes, only the doctor's name and the booking fields. It has to learn each doctor's pace from past visits.</p>
+  </div>
+
+  <div class="lab" id="lab-noise">
+    <div class="lab-head"><span class="tag">Lab 2.2</span><h3>Multiplicative log-normal noise</h3></div>
+    <p class="say">Draw \(Z\) from a symmetric bell, then multiply the visit by \(e^Z\). Percentiles carry straight through \(e^Z\); the mean does not, which is why the centre is shifted to \(\mu=-\sigma^2/2\).</p>
+    <div class="controls">
+      <div class="ctl"><label for="nSig">Noise σ <output id="nSigOut"></output></label><input type="range" id="nSig" min="0.05" max="0.8" step="0.01" value="0.28"></div>
+      <div class="ctl"><label for="nQ">Quantile q <output id="nQOut"></output></label><input type="range" id="nQ" min="0.5" max="0.99" step="0.01" value="0.8"></div>
+    </div>
+    <div class="formula" id="noiseFormula"></div>
+    <p class="say" id="noiseSay"></p>
+    <div class="grid3">
+      <div class="chart short"><canvas id="zChart" aria-label="Distribution of Z"></canvas></div>
+      <div class="chart short"><canvas id="expChart" aria-label="The e to the Z conversion"></canvas></div>
+      <div class="chart short"><canvas id="noiseChart" aria-label="Distribution of the noise multiplier"></canvas></div>
+    </div>
+  </div>
+
+  <div class="lab" id="lab-z">
+    <div class="lab-head"><span class="tag">Lab 2.3</span><h3>z-scores</h3></div>
+    <p class="say">A z-score counts standard deviations from the mean: \(z = \frac{x-\text{mean}}{\text{SD}}\). Every normal curve has the same shape in these units, so each z marks a fixed share below it. 0.8416 is a z-score, not a standard deviation.</p>
+    <div class="controls">
+      <div class="ctl"><label for="zz">z <output id="zzOut"></output></label><input type="range" id="zz" min="-3" max="3" step="0.01" value="0.84"></div>
+      <div class="ctl"><span class="lbl">Jump to a share below</span><div class="chips" id="zChips"></div></div>
+      <div class="ctl"><label for="zMean">Heights: mean (cm)</label><input type="number" id="zMean" value="165"></div>
+      <div class="ctl"><label for="zSd">Heights: SD (cm)</label><input type="number" id="zSd" value="10" min="0.1" step="0.5"></div>
+    </div>
+    <div class="formula" id="zFormula"></div>
+    <div class="chart short"><canvas id="zzChart" aria-label="Standard normal curve with share below z"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-oracle">
+    <div class="lab-head"><span class="tag">Lab 2.4</span><h3>The oracle vs a fixed slot</h3></div>
+    <p class="say">The oracle knows every visit's expected minutes but not its noise. Its score is the floor for any model. Numbers are computed from the July–August visits in the simulation. Try a noisier hospital with σ.</p>
+    <div class="controls">
+      <div class="ctl"><label for="oQ">Oracle books quantile <output id="oQOut"></output></label><input type="range" id="oQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+      <div class="ctl"><label for="oFix">Fixed slot for everyone <output id="oFixOut"></output></label><input type="range" id="oFix" min="10" max="30" step="1" value="15"></div>
+      <div class="ctl"><label for="oSig">Noise σ <output id="oSigOut"></output></label><input type="range" id="oSig" min="0.1" max="0.6" step="0.01" value="0.28"></div>
+      <div class="ctl"><span class="lbl">Booking grid</span><label class="check"><input type="checkbox" id="oRound" checked> Round slots up to 5 min</label></div>
+      <div class="ctl"><label for="oVisit">Example visit</label><select id="oVisit"><option value="13.7">Siddhant, Dr Deepak, new (13.7 min)</option><option value="7">General Medicine follow-up (7 min)</option><option value="28">Neurology new, 2 reports (28 min)</option></select></div>
+    </div>
+    <div class="tablewrap"><table id="oracleTable"></table></div>
+    <div class="formula" id="oracleFormula"></div>
+    <div class="grid3">
+      <div class="chart"><canvas id="tradeChart" aria-label="Overrun rate against idle minutes for every quantile"></canvas></div>
+      <div class="chart"><canvas id="visitChart" aria-label="Distribution of one visit's length with the booked slot"></canvas></div>
+    </div>
+  </div>
+
+  <div class="lab" id="lab-heat">
+    <div class="lab-head"><span class="tag">Lab 2.5</span><h3>Who runs late? By department and visit type</h3></div>
+    <p class="say">Each cell is the share of July–August visits that would run past their slot. A fixed slot is too short for some cells and too long for others; booking a quantile per visit makes every cell run late at about the same rate.</p>
+    <div class="controls">
+      <div class="ctl"><span class="lbl">Booking rule</span>
+        <div class="seg" role="group" aria-label="Booking rule"><button type="button" id="hmFixedBtn" aria-pressed="true">Fixed slot</button><button type="button" id="hmOracleBtn" aria-pressed="false">Oracle quantile</button></div>
+      </div>
+      <div class="ctl"><label for="hmFix">Fixed slot <output id="hmFixOut"></output></label><input type="range" id="hmFix" min="10" max="30" step="1" value="15"></div>
+      <div class="ctl"><label for="hmQ">Oracle quantile <output id="hmQOut"></output></label><input type="range" id="hmQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+      <div class="ctl"><span class="lbl">Booking grid</span><label class="check"><input type="checkbox" id="hmRound"> Round oracle slots up to 5 min</label></div>
+    </div>
+    <p class="say" id="heatSay"></p>
+    <div class="tablewrap"><div class="heat" id="heat"></div></div>
+    <div class="legend"><span>0% late</span><i></i><span>100% late</span><span>· small text: average idle minutes</span></div>
+  </div>
+</section>
+
+<script>
+/* Lab 2.1: hidden rule */
+$("rDoc").innerHTML = D.doctors.map((d, i) => `<option value="${i}">Dr ${d.name} · ${d.dept} · speed ${f(d.speed)}</option>`).join("");
+$("rClinic").innerHTML = Object.keys(D.clinicFactor).map(c => `<option>${c}</option>`).join("");
+$("rTime").innerHTML = range(9, 17.75, 0.25).map(h => { const t = `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`; return `<option value="${h}"${t === "10:30" ? " selected" : ""}>${t}</option>`; }).join("");
+$("rClinic").value = "HSR";
+bindOut("rQ", v => "P" + Math.round(v * 100));
+$("rDoc").addEventListener("input", () => { const d = D.doctors[+$("rDoc").value]; if (!d.clinics.includes($("rClinic").value)) $("rClinic").value = d.clinics[0]; });
+registerLab(function updRule() {
+  const doc = D.doctors[+$("rDoc").value], dept = doc.dept, visit = $("rVisit").value;
+  const age = Math.max(0, +$("rAge").value || 0), reports = Math.max(0, Math.round(+$("rReports").value || 0));
+  const interp = $("rInterp").checked, tele = $("rTele").checked, clinic = $("rClinic").value;
+  const date = $("rDate").value || "2026-03-09", hour = Math.floor(+$("rTime").value), q = +$("rQ").value, s = D.sigma;
+  const wd = (new Date(date + "T00:00:00").getDay() + 6) % 7;
+  $("rDay").textContent = DAYS[wd];
+  const err = $("rErr");
+  if (wd === 6) { err.hidden = false; err.textContent = "Clinics are closed on Sunday. Pick another date."; return; }
+  err.hidden = true;
+  const base = D.departments[dept][D.visitTypes.indexOf(visit)];
+  const rep = D.reportMin * Math.min(reports, D.reportCap), itp = interp ? D.interpreterMin : 0, work = base + rep + itp;
+  const fac = [
+    ["Age 65+", age >= D.elderlyAge ? D.elderlyFactor : 1, `age ${age}`],
+    ["Baby under 3 (Paediatrics)", dept === "Paediatrics" && age < D.infantAge ? D.infantFactor : 1, dept === "Paediatrics" ? `age ${age}` : "not Paediatrics"],
+    ["Video consult", tele ? D.teleFactor : 1, tele ? "yes" : "no"],
+    ["Doctor's pace", doc.speed, `Dr ${doc.name}`],
+    ["Clinic", D.clinicFactor[clinic], clinic],
+    ["Day", D.dayFactor[String(wd)], DAYS[wd]],
+    ["Time of day", hour < D.earlyHour ? D.earlyFactor : hour >= D.lateHour ? D.lateFactor : 1, hour < D.earlyHour ? "before 10:00" : hour >= D.lateHour ? "from 16:00" : "midday"],
+  ];
+  const pace = fac.reduce((p, r) => p * r[1], 1);
+  const drift = dept === D.drift.dept && date >= D.drift.date ? D.drift.extra : 0;
+  const exp = work * pace + drift, med = exp * Math.exp(-s * s / 2), pq = quantileOf(exp, q, s), slot = roundUp(pq);
+  const row = (a, b, c, cls = "") => `<tr class="${cls}"><td>${a}</td><td>${b}</td><td class="num">${c}</td></tr>`;
+  $("ruleTable").innerHTML = `<tr><th>Step</th><th>Why</th><th class="num">Value</th></tr>` +
+    row("Base", `${dept}, ${visit}`, f(base, 1)) +
+    row("+ Reports", `${Math.min(reports, D.reportCap)} × ${D.reportMin}${reports > D.reportCap ? ` (capped at ${D.reportCap})` : ""}`, "+" + f(rep, 1)) +
+    row("+ Interpreter", interp ? "translating" : "not needed", "+" + f(itp, 1)) +
+    row("= Work", "extra work is added", f(work, 1), "total") +
+    fac.map(r => row("× " + r[0], r[2], "×" + f(r[1]))).join("") +
+    row("= Pace", "pace multiplies", "×" + f(pace, 3), "total") +
+    row("+ Drift", drift ? "Dermatology skin-check from 1 July" : "none", "+" + f(drift, 1));
+  tex($("ruleFormula"), R`\text{expected} = \text{work}\times\text{pace} + \text{drift} = ${f(work, 1)} \times ${f(pace, 3)} + ${f(drift, 1)} = ${f(exp)}\text{ min}` +
+    R`\qquad P_{${Math.round(q * 100)}} = ${f(exp)}\,e^{-\sigma^2/2 + ${f(invPhi(q), 3)}\,\sigma} = ${f(pq)}`);
+  $("rExp").textContent = f(exp, 1) + " min"; $("rP50").textContent = f(med, 1) + " min";
+  $("rPqLbl").textContent = `Safe, P${Math.round(q * 100)}`; $("rPq").textContent = f(pq, 1) + " min"; $("rSlot").textContent = slot + " min";
+}, ["rDoc", "rVisit", "rClinic", "rDate", "rTime", "rAge", "rReports", "rInterp", "rTele", "rQ"]);
+
+/* Lab 2.2: log-normal noise */
+const zChart = makeChart("zChart", "Z", "", { yDisplay: false, ymin: 0 });
+const expChart = makeChart("expChart", "Z", "noise = e^Z", { ymin: 0 });
+const noiseChart = makeChart("noiseChart", "noise multiplier", "", { yDisplay: false, ymin: 0 });
+bindOut("nSig", v => f(v)); bindOut("nQ", v => "P" + Math.round(v * 100));
+registerLab(function updNoise() {
+  const s = +$("nSig").value, q = +$("nQ").value, mu = -s * s / 2, z = invPhi(q), Zq = mu + z * s, Nq = Math.exp(Zq), med = Math.exp(mu);
+  tex($("noiseFormula"), R`\mu = -\tfrac{\sigma^2}{2} = ${f(mu, 3)},\quad z_{${f(q)}} = ${f(z, 4)},\quad Z_q = \mu + z\sigma = ${f(Zq, 3)},\quad e^{Z_q} = ${f(Nq, 3)},\quad \frac{P_{${Math.round(q * 100)}}}{\text{median}} = e^{z\sigma} = ${f(Math.exp(z * s), 3)}`);
+  const lo14 = 14 * Math.exp(mu + invPhi(0.1) * s), hi14 = 14 * Math.exp(mu + invPhi(0.9) * s);
+  $("noiseSay").innerHTML = `Noise median <b>${f(med, 3)}</b>, mean <b>1.000</b>, P${Math.round(q * 100)} <b>${f(Nq, 3)}</b>. A visit expected to take 14 min: 80% finish between <b>${f(lo14, 1)} and ${f(hi14, 1)} min</b>. Even a perfect model would be off by about <b>${pct(2 * Phi(s) - 1, 0)}</b> of the expected time (oracle MAE).`;
+  const A = css("--accent"), Lc = css("--late"), Ic = css("--idle"), M = css("--muted"), I = css("--ink");
+  const zs = range(mu - 4 * s, mu + 4 * s, s / 40), zp = zs.map(x => ({ x, y: phi((x - mu) / s) / s }));
+  const zTop = Math.max(...zp.map(p => p.y)) * 1.08;
+  zChart.data.datasets = [area("_below", zp.filter(p => p.x <= Zq), A), line("Z ~ Normal(μ, σ)", zp, I),
+    vline("centre μ", mu, 0, zTop, M, [3, 3]), vline(`Z at P${Math.round(q * 100)}`, Zq, 0, zTop, Lc)];
+  zChart.options.scales.y.max = zTop; paint(zChart);
+  const ep = zs.map(x => ({ x, y: Math.exp(x) }));
+  expChart.data.datasets = [line("e^Z", ep, I), line("_guide", [{ x: Zq, y: 0 }, { x: Zq, y: Nq }, { x: zs[0], y: Nq }], Lc, { borderDash: [4, 4], borderWidth: 1.5 }),
+    { label: `e^${f(Zq, 3)} = ${f(Nq, 3)}`, data: [{ x: Zq, y: Nq }], pointRadius: 6, backgroundColor: Lc, borderColor: Lc }];
+  expChart.options.scales.y.max = Math.exp(zs[zs.length - 1]); paint(expChart);
+  const xs = zs.map(Math.exp), np = xs.map(x => ({ x, y: visitPdf(x, 1, s) }));
+  const nTop = Math.max(...np.map(p => p.y)) * 1.08;
+  noiseChart.data.datasets = [area("_below", np.filter(p => p.x <= Nq), A), line("noise = e^Z", np, I),
+    vline(`median ${f(med, 3)}`, med, 0, nTop, M, [3, 3]), vline("mean 1.000", 1, 0, nTop, Ic, [6, 3]), vline(`P${Math.round(q * 100)} ${f(Nq, 3)}`, Nq, 0, nTop, Lc)];
+  noiseChart.options.scales.y.max = nTop; noiseChart.options.scales.x.min = xs[0]; noiseChart.options.scales.x.max = xs[xs.length - 1]; paint(noiseChart);
+}, ["nSig", "nQ"]);
+
+/* Lab 2.3: z-scores */
+const zzChart = makeChart("zzChart", "z (standard deviations from the mean)", "", { yDisplay: false, ymin: 0, xmin: -3.5, xmax: 3.5 });
+bindOut("zz", v => f(v));
+$("zChips").innerHTML = [0.5, 0.67, 0.75, 0.8, 0.9, 0.95].map(p => `<button type="button" data-p="${p}">${Math.round(p * 100)}%</button>`).join("");
+$("zChips").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; $("zz").value = f(invPhi(+b.dataset.p), 2); $("zz").dispatchEvent(new Event("input")); });
+registerLab(function updZ() {
+  const z = +$("zz").value, share = Phi(z), mean = +$("zMean").value || 0, sd = Math.max(+$("zSd").value || 1, 0.1);
+  tex($("zFormula"), R`\Phi(${f(z)}) = ${f(share * 100, 1)}\%\ \text{below} \qquad x = \text{mean} + z\cdot\text{SD} = ${f(mean, 1)} + ${f(z)}\times${f(sd, 1)} = ${f(mean + z * sd, 1)}\text{ cm}`);
+  const xs = range(-3.5, 3.5, 0.05), p = xs.map(x => ({ x, y: phi(x) }));
+  const A = css("--accent"), Lc = css("--late"), I = css("--ink");
+  zzChart.data.datasets = [area(`${f(share * 100, 1)}% below`, p.filter(o => o.x <= z), A), line("standard normal", p, I), vline(`z = ${f(z)}`, z, 0, 0.43, Lc)];
+  zzChart.options.scales.y.max = 0.43; paint(zzChart);
+}, ["zz", "zMean", "zSd"]);
+
+/* Lab 2.4: oracle */
+const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits running late (%)", { ymin: 0 });
+const visitChart = makeChart("visitChart", "actual minutes", "", { yDisplay: false, ymin: 0, xmin: 0, xmax: 60, tooltip: false });
+bindOut("oQ", v => "P" + Math.round(v * 100)); bindOut("oFix", v => v + " min"); bindOut("oSig", v => f(v));
+registerLab(function updOracle() {
+  const q = +$("oQ").value, F = +$("oFix").value, s = +$("oSig").value, rnd = $("oRound").checked, m = +$("oVisit").value, H = D.test.hist;
+  const slotOf = (mm, qq) => { const x = quantileOf(mm, qq, s); return rnd ? roundUp(x) : x; };
+  const o = population(H, mm => slotOf(mm, q), s), fx = population(H, () => F, s);
+  const oracleMae = H.reduce((t, [mm, k]) => t + k * mm * (2 * Phi(s) - 1), 0) / o.n;
+  const cmp = (a, b) => a < b - 1e-9 ? "oracle lower" : a > b + 1e-9 ? "fixed lower" : "same";
+  const tr = (name, a, b, fmt) => `<tr><td>${name}</td><td class="num">${fmt(a)}</td><td class="num">${fmt(b)}</td><td>${cmp(a, b)}</td></tr>`;
+  $("oracleTable").innerHTML = `<tr><th>July–August, ${D.test.visits.toLocaleString()} visits</th><th class="num">Oracle P${Math.round(q * 100)}</th><th class="num">Fixed ${F} min</th><th></th></tr>` +
+    tr("Visits running late", o.late, fx.late, x => pct(x, 1)) +
+    tr("Doctor idle per visit", o.idle, fx.idle, x => f(x) + " min") +
+    tr("Late minutes per visit", o.over, fx.over, x => f(x) + " min") +
+    tr("Average slot booked", o.slot, fx.slot, x => f(x, 1) + " min") +
+    tr("MAE of the typical guess", oracleMae, fx.mae, x => f(x) + " min");
+  tex($("oracleFormula"), R`\text{MAE}_{oracle} = \overline{\text{expected}}\times\big(2\Phi(\sigma)-1\big) = ${f(D.test.meanExpected)}\times${f(2 * Phi(s) - 1, 3)} = ${f(oracleMae)}\text{ min}`);
+  const A = css("--accent"), Lc = css("--late"), Ic = css("--idle"), I = css("--ink"), M = css("--muted");
+  const qs = range(0.5, 0.95, 0.01);
+  const curve = r => qs.map(qq => { const p = population(H, mm => { const x = quantileOf(mm, qq, s); return r ? roundUp(x) : x; }, s); return { x: +p.idle.toFixed(3), y: +(p.late * 100).toFixed(2) }; });
+  tradeChart.data.datasets = [
+    line("Exact slots", curve(false), A),
+    line("Rounded up to 5", curve(true), A, { borderDash: [6, 4] }),
+    { label: `Fixed ${F} min`, data: [{ x: fx.idle, y: fx.late * 100 }], pointStyle: "crossRot", pointRadius: 9, borderWidth: 3, borderColor: I, backgroundColor: I },
+    { label: `Oracle P${Math.round(q * 100)}`, data: [{ x: o.idle, y: o.late * 100 }], pointRadius: 7, backgroundColor: Lc, borderColor: Lc },
+  ];
+  paint(tradeChart);
+  const xs = range(0.5, 60, 0.25), p = xs.map(x => ({ x, y: visitPdf(x, m, s) })), top = Math.max(...p.map(o2 => o2.y)) * 1.08;
+  const sl = slotOf(m, q), one = score(m, sl, s);
+  visitChart.data.datasets = [
+    area(`runs late: ${pct(one.late)}`, p.filter(o2 => o2.x >= sl), Lc, 0.28),
+    line(`expected ${m} min`, p, M),
+    vline(`slot ${f(sl, rnd ? 0 : 1)} min`, sl, 0, top, Lc),
+    vline(`typical ${f(m * Math.exp(-s * s / 2), 1)} min`, m * Math.exp(-s * s / 2), 0, top, Ic, [4, 4]),
+  ];
+  visitChart.options.scales.y.max = top; paint(visitChart);
+}, ["oQ", "oFix", "oSig", "oRound", "oVisit"]);
+
+/* Lab 2.5: heatmap */
+let hmMode = "fixed";
+bindOut("hmFix", v => v + " min"); bindOut("hmQ", v => "P" + Math.round(v * 100));
+function updHeat() {
+  const s = D.sigma, F = +$("hmFix").value, q = +$("hmQ").value, rnd = $("hmRound").checked;
+  const cols = ["follow-up", "review", "new"], depts = Object.keys(D.departments);
+  const slotOf = hmMode === "fixed" ? () => F : mm => { const x = quantileOf(mm, q, s); return rnd ? roundUp(x) : x; };
+  let html = `<div class="h"></div>` + cols.map(c => `<div class="h">${c}</div>`).join(""), rates = [];
+  for (const d of depts) {
+    html += `<div class="r">${d}</div>`;
+    for (const c of cols) {
+      const h = D.test.cells[`${d}|${c}`];
+      if (!h) { html += `<div class="c">–</div>`; continue; }
+      const r = population(h, slotOf, s); rates.push(r.late);
+      html += `<div class="c" style="background: color-mix(in srgb, var(--late) ${Math.round(r.late * 85)}%, var(--surface))" title="${d}, ${c}: ${pct(r.late, 1)} late, ${f(r.idle, 1)} idle min, ${r.n} visits"><strong>${pct(r.late)}</strong><span>${f(r.idle, 1)} idle</span></div>`;
+    }
+  }
+  $("heat").innerHTML = html;
+  $("heatSay").innerHTML = `${hmMode === "fixed" ? `Fixed ${F}-minute slot` : `Oracle P${Math.round(q * 100)}${rnd ? ", rounded up to 5" : ""}`}: late rates range from <b>${pct(Math.min(...rates))}</b> to <b>${pct(Math.max(...rates))}</b> across the 24 cells.`;
+}
+function setMode(m) { hmMode = m; $("hmFixedBtn").setAttribute("aria-pressed", m === "fixed"); $("hmOracleBtn").setAttribute("aria-pressed", m === "oracle"); updHeat(); }
+$("hmFixedBtn").addEventListener("click", () => setMode("fixed"));
+$("hmOracleBtn").addEventListener("click", () => setMode("oracle"));
+registerLab(updHeat, ["hmFix", "hmQ", "hmRound"]);
+
+startLabs();
+</script>

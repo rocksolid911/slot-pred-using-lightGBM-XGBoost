@@ -9,7 +9,7 @@ Your revision material for the project. One file per lesson, all following [_TEM
 
 Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md) for every formula on one page.
 
-**Play with it:** [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf) has interactive labs for every concept, with sliders, live formulas, charts and heatmaps. The same page is in the repo at [interactive/index.html](interactive/index.html): open it in any browser. After changing `slotpred/world.py`, refresh its data with `.venv/Scripts/python.exe notes/interactive/build_data.py`.
+**Play with it:** every lesson has its own interactive lab page (sliders, live formulas, charts, heatmaps), listed on the hub [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf): [A1 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc), [A2 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA). Offline copies are in [interactive/](interactive/); open any `.html` in a browser. After changing `slotpred/world.py`, rebuild them with `.venv/Scripts/python.exe notes/interactive/build.py`.
 
 **Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into.
 

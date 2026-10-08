@@ -1,0 +1,132 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-cost">1.1 Slot cost</a>
+  <a href="#lab-pinball">1.2 Pinball loss</a>
+  <a href="#lab-po">1.3 Ask the PO</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>Which slot should we book?</h2>
+    <p>Consult times are right-skewed, and running late is worse than sitting idle. So the right slot is not the average visit; it's the quantile set by how much worse an overrun is than idle time.</p>
+  </div>
+
+  <div class="lab" id="lab-cost">
+    <div class="lab-head"><span class="tag">Lab 1.1</span><h3>The cost of every slot</h3></div>
+    <p class="say">Each minute a visit runs past its slot costs \(c_{over}\); each idle minute costs \(c_{idle}\). Edit the visits or the costs and watch the cheapest slot move. The flat bottom is always where the share of visits below it equals \(\frac{c_{over}}{c_{over}+c_{idle}}\).</p>
+    <div class="controls">
+      <div class="ctl" style="grid-column: 1 / -1">
+        <label for="visits">Visit lengths (minutes, separated by commas)</label>
+        <input type="text" id="visits" value="8, 9, 10, 11, 12, 13, 14, 16, 20, 27">
+        <span class="err" id="visitsErr" hidden></span>
+      </div>
+      <div class="ctl"><label for="cOver">Overrun cost per minute <output id="cOverOut"></output></label><input type="range" id="cOver" min="1" max="20" step="1" value="4"></div>
+      <div class="ctl"><label for="cIdle">Idle cost per minute <output id="cIdleOut"></output></label><input type="range" id="cIdle" min="1" max="10" step="1" value="1"></div>
+      <div class="ctl"><label for="inspect">Inspect slot <output id="inspectOut"></output></label><input type="range" id="inspect" min="2" max="40" step="0.5" value="18"></div>
+    </div>
+    <div class="formula" id="costFormula"></div>
+    <p class="say" id="costSay"></p>
+    <div class="formula" id="slopeFormula"></div>
+    <p class="say" id="slopeSay"></p>
+    <div class="chart"><canvas id="costChart" aria-label="Total cost against slot length"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-pinball">
+    <div class="lab-head"><span class="tag">Lab 1.2</span><h3>The pinball loss</h3></div>
+    <p class="say">Divide the slot cost by \(c_{over}+c_{idle}\) and you get the loss a quantile model minimises:</p>
+    <div class="formula">\[ L_q(y,\hat y) = \begin{cases} q\,(y-\hat y) & y \ge \hat y \;\;\text{(ran over)}\\ (1-q)\,(\hat y-y) & y < \hat y \;\;\text{(idle)} \end{cases} \]</div>
+    <div class="controls">
+      <div class="ctl"><label for="pq">Quantile q <output id="pqOut"></output></label><input type="range" id="pq" min="0.05" max="0.95" step="0.01" value="0.8"></div>
+      <div class="ctl"><label for="pe">Actual − predicted (minutes) <output id="peOut"></output></label><input type="range" id="pe" min="-15" max="15" step="0.5" value="5"></div>
+    </div>
+    <div class="formula" id="pinFormula"></div>
+    <p class="say" id="pinSay"></p>
+    <div class="chart short"><canvas id="pinChart" aria-label="Pinball loss against error"></canvas></div>
+    <details>
+      <summary>The loss decides what the model predicts</summary>
+      <div class="tablewrap"><table>
+        <tr><th>Train with</th><th>The model learns</th></tr>
+        <tr><td>\((y-\hat y)^2\)</td><td>the mean</td></tr>
+        <tr><td>\(|y-\hat y|\) (pinball, q = 0.5)</td><td>the median</td></tr>
+        <tr><td>\(L_q\)</td><td>the q-th quantile</td></tr>
+      </table></div>
+    </details>
+  </div>
+
+  <div class="lab" id="lab-po">
+    <div class="lab-head"><span class="tag">Lab 1.3</span><h3>Ask the PO, get a quantile</h3></div>
+    <p class="say">The PO answers in plain words; each answer turns into a quantile. Your PO rejected 4:1 and said "maybe" to 2 in 10, which points to P67–P75.</p>
+    <div class="controls">
+      <div class="ctl"><label for="poN">"Waiting is N times worse than idle" <output id="poNOut"></output></label><input type="range" id="poN" min="1" max="15" step="0.5" value="4"></div>
+      <div class="ctl"><label for="poK">"k out of 10 may run late" <output id="poKOut"></output></label><input type="range" id="poK" min="0" max="9" step="1" value="2"></div>
+    </div>
+    <div class="grid3">
+      <div class="formula" id="poNFormula"></div>
+      <div class="formula" id="poKFormula"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* Lab 1.1: slot cost */
+const costChart = makeChart("costChart", "slot booked (minutes)", "total cost", { ymin: 0 });
+bindOut("cOver", v => v); bindOut("cIdle", v => v); bindOut("inspect", v => f(v, 1) + " min");
+registerLab(function updCost() {
+  const raw = $("visits").value.split(/[,\s]+/).filter(Boolean).map(Number);
+  const v = raw.filter(x => isFinite(x) && x > 0).sort((a, b) => a - b);
+  const err = $("visitsErr");
+  if (v.length < 2 || v.length !== raw.length) { err.hidden = false; err.textContent = "Enter at least two positive numbers, separated by commas."; return; }
+  err.hidden = true;
+  const cO = +$("cOver").value, cI = +$("cIdle").value, s0 = +$("inspect").value;
+  const cost = s => v.reduce((t, y) => t + cO * Math.max(y - s, 0) + cI * Math.max(s - y, 0), 0);
+  const xs = range(Math.max(0, v[0] - 4), v[v.length - 1] + 6, 0.05), pts = xs.map(x => ({ x, y: cost(x) }));
+  const minC = Math.min(...pts.map(p => p.y)), flat = pts.filter(p => p.y <= minC + 1e-6);
+  const lo = flat[0].x, hi = flat[flat.length - 1].x, q = cO / (cO + cI);
+  const below = v.filter(y => y <= lo + 1e-9).length;
+  const median = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+  tex($("costFormula"), R`q^* = \frac{c_{over}}{c_{over}+c_{idle}} = \frac{${cO}}{${cO}+${cI}} = ${f(q)} \quad\Rightarrow\quad \text{book P}${Math.round(q * 100)}`);
+  $("costSay").innerHTML = `Cheapest slot: <b>${f(lo, 1)}${hi - lo > 0.06 ? "–" + f(hi, 1) : ""} min</b> (cost ${f(minC, 1)}). ${below} of ${v.length} visits (${pct(below / v.length)}) finish within it, the closest the data allows to ${pct(q)}. Mean ${f(v.reduce((a, b) => a + b) / v.length, 1)}, median ${f(median, 1)}.`;
+  const nA = v.filter(y => y > s0).length, nB = v.filter(y => y < s0).length, slope = -cO * nA + cI * nB;
+  tex($("slopeFormula"), R`\frac{dC}{ds}\Big|_{s=${f(s0, 1)}} = -c_{over}N_{above} + c_{idle}N_{below} = -${cO}\cdot${nA} + ${cI}\cdot${nB} = ${slope}`);
+  $("slopeSay").innerHTML = `At a ${f(s0, 1)}-minute slot the total cost is <b>${f(cost(s0), 1)}</b>. ` +
+    (slope < 0 ? "The slope is negative: a longer slot would be cheaper." : slope > 0 ? "The slope is positive: a shorter slot would be cheaper." : "The slope is zero: you're on the flat bottom.");
+  const top = Math.max(...pts.map(p => p.y)), A = css("--accent"), L = css("--late"), I = css("--ink");
+  costChart.data.datasets = [
+    area("Cheapest region", pts.filter(p => p.x >= lo - 1e-9 && p.x <= hi + 1e-9), A, 0.25),
+    line("Total cost", pts, A),
+    vline("Inspected slot", s0, 0, top, I, [5, 4]),
+    { label: "Visits", data: v.map(x => ({ x, y: 0 })), pointStyle: "triangle", pointRadius: 6, backgroundColor: L, borderColor: L },
+  ];
+  costChart.options.scales.y.max = top * 1.05;
+  paint(costChart);
+}, ["visits", "cOver", "cIdle", "inspect"]);
+
+/* Lab 1.2: pinball loss */
+const pinChart = makeChart("pinChart", "actual − predicted (minutes)", "loss", { ymin: 0, xmin: -15, xmax: 15 });
+bindOut("pq", v => f(v)); bindOut("pe", v => (v > 0 ? "+" : "") + f(v, 1));
+registerLab(function updPin() {
+  const q = +$("pq").value, e = +$("pe").value, L = e >= 0 ? q * e : (q - 1) * e;
+  tex($("pinFormula"), e >= 0
+    ? R`L_{${f(q)}} = q\,(y-\hat y) = ${f(q)} \times ${f(e, 1)} = ${f(L)}`
+    : R`L_{${f(q)}} = (1-q)\,(\hat y-y) = ${f(1 - q)} \times ${f(-e, 1)} = ${f(L)}`);
+  $("pinSay").innerHTML = (e > 0 ? `The visit ran <b>${f(e, 1)} min over</b> the prediction.` : e < 0 ? `The visit finished <b>${f(-e, 1)} min early</b>; the doctor was idle.` : "Perfect prediction: no loss.") +
+    ` With q = ${f(q)}, a minute of overrun costs <b>${f(q / (1 - q), 1)}×</b> a minute of idle time (q / (1 − q)).`;
+  const xs = range(-15, 15, 0.5), A = css("--accent"), Lc = css("--late"), Ic = css("--idle");
+  pinChart.data.datasets = [
+    line("Ran over (under-predicted)", xs.filter(x => x >= 0).map(x => ({ x, y: q * x })), Lc),
+    line("Idle (over-predicted)", xs.filter(x => x <= 0).map(x => ({ x, y: (q - 1) * x })), Ic),
+    { label: "This example", data: [{ x: e, y: L }], pointRadius: 7, backgroundColor: A, borderColor: A },
+  ];
+  pinChart.options.scales.y.max = Math.max(15 * Math.max(q, 1 - q), 1) * 1.05;
+  paint(pinChart);
+}, ["pq", "pe"]);
+
+/* Lab 1.3: PO translator */
+bindOut("poN", v => f(v, 1) + "×"); bindOut("poK", v => v + " in 10");
+registerLab(function updPO() {
+  const N = +$("poN").value, k = +$("poK").value, q1 = N / (N + 1), q2 = 1 - k / 10;
+  tex($("poNFormula"), R`q = \frac{N}{N+1} = \frac{${f(N, 1)}}{${f(N + 1, 1)}} = ${f(q1)} \;\Rightarrow\; \text{P}${Math.round(q1 * 100)}`);
+  tex($("poKFormula"), R`q = 1-\frac{k}{10} = 1-\frac{${k}}{10} = ${f(q2)} \;\Rightarrow\; N = \frac{q}{1-q} = ${q2 < 1 ? f(q2 / (1 - q2), 1) : "\\infty"}`);
+}, ["poN", "poK"]);
+
+startLabs();
+</script>
