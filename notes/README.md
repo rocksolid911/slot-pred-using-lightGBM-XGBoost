@@ -9,6 +9,8 @@ Your revision material for the project. One file per lesson, all following [_TEM
 
 Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md) for every formula on one page.
 
+**Play with it:** [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf) has interactive labs for every concept, with sliders, live formulas, charts and heatmaps. The same page is in the repo at [interactive/index.html](interactive/index.html): open it in any browser. After changing `slotpred/world.py`, refresh its data with `.venv/Scripts/python.exe notes/interactive/build_data.py`.
+
 **Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into.
 
 ## Track A: production model (LightGBM / XGBoost)

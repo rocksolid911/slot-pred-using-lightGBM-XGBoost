@@ -1,6 +1,8 @@
 # A1 · Framing: what are we predicting, and how do we judge it?
 
 > **Date:** 2026-10-08 · **Notebook:** [notebooks/A01_framing.ipynb](../notebooks/A01_framing.ipynb) · **Git tag:** `lesson-A1`
+>
+> **Interactive:** [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf) (Lab 1 slot cost, Lab 2 pinball loss, Lab 3 ask the PO). Offline copy: [interactive/index.html](interactive/index.html)
 
 ## In one line
 The right slot isn't the average visit. It's the **quantile set by how much worse an overrun is than idle time**: overrun 4× worse means book the **P80**.

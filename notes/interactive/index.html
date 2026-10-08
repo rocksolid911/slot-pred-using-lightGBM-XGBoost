@@ -1,0 +1,591 @@
+<title>OPD Slot Lab</title>
+<meta name="description" content="Interactive study notes for the OPD slot-prediction project">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spectral:wght@500;600&display=swap">
+<style>
+/* Layout: a lab notebook. One reading column; each concept is a "lab bench" panel with controls, live formula, chart. */
+:root {
+  --bg: #F3F6F7; --surface: #FFFFFF; --ink: #13252C; --muted: #56676E; --line: #D6DEE1;
+  --accent: #0E7C7B; --late: #C4463B; --idle: #4A6CA6; --soft: #E3EFEE; --grid: #E7ECEE;
+  --f-display: "Spectral", Georgia, serif; --f-body: "IBM Plex Sans", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D1518; --surface: #142024; --ink: #E2EBED; --muted: #94A6AC; --line: #26363C;
+  --accent: #46BCB1; --late: #EE7E73; --idle: #8EAADB; --soft: #173130; --grid: #1D2B30; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0D1518; --surface: #142024; --ink: #E2EBED; --muted: #94A6AC; --line: #26363C;
+  --accent: #46BCB1; --late: #EE7E73; --idle: #8EAADB; --soft: #173130; --grid: #1D2B30; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.65 var(--f-body); padding-inline: 16px; padding-block: 0 4rem; }
+.wrap { max-width: 860px; margin: 0 auto; }
+header { padding-block: 2.5rem 1.25rem; border-bottom: 1px solid var(--line); }
+.eyebrow { font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 600 clamp(2rem, 5vw, 2.8rem)/1.1 var(--f-display); margin: .35rem 0 .6rem; text-wrap: balance; }
+h2 { font: 600 1.7rem/1.2 var(--f-display); margin: 0; text-wrap: balance; }
+h3 { font: 600 1.15rem/1.3 var(--f-body); margin: 0; }
+p { margin: 0; max-width: 68ch; }
+.sub { color: var(--muted); }
+nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; gap: 8px; flex-wrap: wrap; padding-block: .75rem; border-bottom: 1px solid var(--line); }
+nav a { font: 500 13px var(--f-mono); color: var(--ink); text-decoration: none; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; }
+nav a:hover, nav a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.lesson { padding-block: 2.5rem 0; display: grid; gap: 1.25rem; }
+.lesson-head { display: grid; gap: .4rem; }
+.lab { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; display: grid; gap: 1rem; min-width: 0; }
+.lab-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tag { font: 500 12px var(--f-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 6px; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1.25rem; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label, .lbl { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font: 500 13px var(--f-mono); color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=text], input[type=number], input[type=date], select { font: 14px var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button, .seg button { font: 500 12px var(--f-mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.chips button:hover, .seg button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.formula { background: var(--soft); border-radius: 8px; padding: .75rem 1rem; overflow-x: auto; font-size: 15px; }
+.formula p { max-width: none; }
+.say { font-size: 15px; }
+.say b { font-weight: 600; }
+.err { color: var(--late); font-size: 13px; }
+.chart { position: relative; height: 260px; min-width: 0; }
+.chart.short { height: 210px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: .55rem .75rem; display: grid; gap: 2px; }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat strong { font: 500 1.35rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 13px; }
+td.num, th.num { text-align: right; font-family: var(--f-mono); }
+tr.total td { font-weight: 600; border-bottom: 2px solid var(--ink); }
+.heat { display: grid; grid-template-columns: minmax(110px, 1.3fr) repeat(3, minmax(64px, 1fr)); gap: 4px; min-width: 360px; }
+.heat .h { font: 500 12px var(--f-mono); color: var(--muted); padding: 4px; align-self: end; }
+.heat .r { font-size: 13px; padding: 6px 4px; align-self: center; }
+.heat .c { border-radius: 6px; padding: 6px; text-align: center; font-variant-numeric: tabular-nums; display: grid; }
+.heat .c strong { font: 500 15px var(--f-mono); }
+.heat .c span { font-size: 11px; color: var(--muted); }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.legend i { display: inline-block; width: 120px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--surface), var(--late)); border: 1px solid var(--line); }
+details { border-top: 1px solid var(--line); padding-top: .75rem; }
+summary { cursor: pointer; font-weight: 500; }
+footer { margin-top: 3rem; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 1rem; }
+code { font: 13px var(--f-mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<script>
+window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] }, svg: { fontCache: "global" }, options: { enableMenu: false } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>/*SLOT_DATA*/window.SLOT_DATA = {"departments":{"Cardiology":[20,9,13],"Orthopaedics":[14,8,10],"Paediatrics":[16,9,10],"General Medicine":[12,7,9],"Dermatology":[10,6,7],"ENT":[12,7,8],"Gynaecology":[18,10,12],"Neurology":[24,12,15]},"visitTypes":["new","follow-up","review"],"reportMin":1.3,"reportCap":8,"interpreterMin":4.0,"elderlyAge":65,"elderlyFactor":1.15,"infantAge":3,"infantFactor":1.15,"teleFactor":0.8,"clinicFactor":{"HSR":1.0,"Whitefield":0.95,"Koramangala":0.9,"Jayanagar":1.05,"Indiranagar":0.97},"dayFactor":{"0":0.94,"1":1.0,"2":1.0,"3":1.0,"4":1.0,"5":1.05},"earlyHour":10,"earlyFactor":1.05,"lateHour":16,"lateFactor":0.92,"drift":{"date":"2026-07-01","dept":"Dermatology","extra":3.0},"sigma":0.28,"doctors":[{"name":"Deepak Rao","dept":"General Medicine","speed":1.0,"clinics":["HSR","Koramangala"],"joined":"2025-01-01"},{"name":"Divya Rao","dept":"Dermatology","speed":0.9,"clinics":["HSR","Indiranagar"],"joined":"2025-01-01"},{"name":"Anita Sharma","dept":"Cardiology","speed":1.15,"clinics":["HSR","Jayanagar"],"joined":"2025-01-01"},{"name":"Rahul Menon","dept":"Cardiology","speed":0.9,"clinics":["Whitefield","Koramangala"],"joined":"2025-01-01"},{"name":"Priya Nair","dept":"Paediatrics","speed":1.1,"clinics":["HSR","Whitefield"],"joined":"2025-01-01"},{"name":"Suresh Kumar","dept":"Orthopaedics","speed":0.85,"clinics":["Jayanagar","Koramangala"],"joined":"2025-01-01"},{"name":"Kavita Iyer","dept":"Gynaecology","speed":1.05,"clinics":["Indiranagar","HSR"],"joined":"2025-01-01"},{"name":"Arjun Reddy","dept":"Orthopaedics","speed":1.1,"clinics":["Whitefield","HSR"],"joined":"2025-01-01"},{"name":"Meera Pillai","dept":"Neurology","speed":1.0,"clinics":["Koramangala","Jayanagar"],"joined":"2025-01-01"},{"name":"Vikram Shetty","dept":"ENT","speed":0.95,"clinics":["Indiranagar","Whitefield"],"joined":"2025-01-01"},{"name":"Neha Gupta","dept":"General Medicine","speed":1.2,"clinics":["Jayanagar","Whitefield"],"joined":"2025-01-01"},{"name":"Sanjay Patil","dept":"Paediatrics","speed":0.9,"clinics":["Koramangala","Indiranagar"],"joined":"2025-01-01"},{"name":"Lakshmi Krishnan","dept":"Gynaecology","speed":0.95,"clinics":["Jayanagar","Whitefield"],"joined":"2025-01-01"},{"name":"Imran Khan","dept":"General Medicine","speed":0.85,"clinics":["Indiranagar","HSR"],"joined":"2025-01-01"},{"name":"Farah Siddiqui","dept":"Neurology","speed":1.15,"clinics":["HSR","Whitefield"],"joined":"2025-01-01"},{"name":"Rohan Desai","dept":"ENT","speed":1.05,"clinics":["Koramangala","HSR"],"joined":"2025-01-01"},{"name":"Asha Hegde","dept":"Dermatology","speed":1.1,"clinics":["Jayanagar","Koramangala"],"joined":"2025-01-01"},{"name":"Karthik Subramanian","dept":"Cardiology","speed":1.0,"clinics":["Indiranagar","Jayanagar"],"joined":"2025-01-01"},{"name":"Pooja Bhat","dept":"Paediatrics","speed":1.0,"clinics":["Jayanagar","Indiranagar"],"joined":"2025-01-01"},{"name":"Manoj Joshi","dept":"Orthopaedics","speed":1.0,"clinics":["HSR","Indiranagar"],"joined":"2025-01-01"},{"name":"Nikhil Verma","dept":"Paediatrics","speed":1.35,"clinics":["HSR","Whitefield"],"joined":"2026-07-01"}],"qCandidates":[0.67,0.75,0.8],"test":{"from":"2026-07-01","visits":11144,"meanExpected":13.97,"hist":[[4.25,4],[4.75,15],[5.25,46],[5.75,144],[6.25,214],[6.75,217],[7.25,332],[7.75,351],[8.25,460],[8.75,451],[9.25,496],[9.75,465],[10.25,432],[10.75,446],[11.25,463],[11.75,448],[12.25,417],[12.75,420],[13.25,418],[13.75,408],[14.25,268],[14.75,349],[15.25,373],[15.75,260],[16.25,268],[16.75,261],[17.25,204],[17.75,185],[18.25,239],[18.75,173],[19.25,190],[19.75,146],[20.25,143],[20.75,129],[21.25,83],[21.75,114],[22.25,83],[22.75,59],[23.25,89],[23.75,83],[24.25,62],[24.75,41],[25.25,65],[25.75,48],[26.25,42],[26.75,49],[27.25,52],[27.75,46],[28.25,18],[28.75,52],[29.25,40],[29.75,14],[30.25,37],[30.75,52],[31.25,7],[31.75,28],[32.25,46],[32.75,3],[33.25,21],[33.75,29],[34.75,5],[35.25,18],[35.75,1],[36.25,3],[36.75,4],[37.25,2],[38.25,3],[38.75,3],[39.25,1],[40.25,2],[40.75,1],[42.25,3]],"cells":{"Cardiology|follow-up":[[5.25,2],[5.75,5],[6.25,12],[6.75,17],[7.25,54],[7.75,56],[8.25,77],[8.75,94],[9.25,66],[9.75,77],[10.25,51],[10.75,55],[11.25,64],[11.75,31],[12.25,37],[12.75,16],[13.25,12],[13.75,10],[14.25,14],[14.75,7],[15.25,8],[15.75,5],[16.25,3],[16.75,2],[17.25,1],[18.75,3],[19.75,1]],"Cardiology|new":[[14.75,1],[15.25,2],[15.75,5],[16.25,9],[16.75,5],[17.25,7],[17.75,11],[18.25,24],[18.75,6],[19.25,34],[19.75,13],[20.25,27],[20.75,13],[21.25,24],[21.75,22],[22.25,15],[22.75,11],[23.25,27],[23.75,33],[24.25,36],[24.75,16],[25.25,19],[25.75,30],[26.25,12],[26.75,11],[27.25,35],[27.75,13],[28.25,5],[28.75,32],[29.25,8],[29.75,8],[30.25,20],[30.75,5],[31.25,5],[31.75,13],[32.25,5],[32.75,1],[33.25,5],[33.75,7],[34.75,2],[35.25,4],[38.75,1]],"Cardiology|review":[[9.25,1],[9.75,3],[10.25,4],[10.75,4],[11.25,2],[11.75,11],[12.25,7],[12.75,11],[13.25,12],[13.75,14],[14.25,16],[14.75,6],[15.25,29],[15.75,16],[16.25,22],[16.75,18],[17.25,20],[17.75,17],[18.25,15],[18.75,24],[19.25,17],[19.75,7],[20.25,14],[20.75,12],[21.25,3],[21.75,6],[22.25,4],[22.75,1],[23.25,4],[23.75,5],[24.25,3],[25.25,5],[26.25,2],[27.25,3],[27.75,1]],"Dermatology|follow-up":[[6.75,2],[7.25,12],[7.75,35],[8.25,82],[8.75,69],[9.25,67],[9.75,71],[10.25,34],[10.75,39],[11.25,21],[11.75,23],[12.25,10],[12.75,18],[13.25,3],[13.75,4],[14.25,2],[14.75,2],[15.25,1],[15.75,1],[16.25,1],[18.25,1]],"Dermatology|new":[[10.75,3],[11.25,7],[11.75,15],[12.25,36],[12.75,41],[13.25,33],[13.75,26],[14.25,35],[14.75,39],[15.25,34],[15.75,22],[16.25,33],[16.75,27],[17.25,6],[17.75,4],[18.25,8],[18.75,8],[19.25,6],[19.75,8],[20.75,2],[21.25,1],[21.75,6],[22.25,1],[22.75,1],[23.75,2]],"Dermatology|review":[[8.75,2],[9.25,4],[9.75,3],[10.25,9],[10.75,10],[11.25,14],[11.75,20],[12.25,9],[12.75,22],[13.25,10],[13.75,15],[14.25,15],[14.75,12],[15.25,6],[15.75,15],[16.25,12],[16.75,2],[17.25,6],[17.75,6],[18.25,4],[18.75,6],[19.25,2],[20.75,1],[21.25,1],[24.75,1]],"ENT|follow-up":[[4.25,2],[4.75,3],[5.25,5],[5.75,36],[6.25,78],[6.75,82],[7.25,74],[7.75,58],[8.25,30],[8.75,29],[9.25,21],[9.75,14],[10.25,20],[10.75,10],[11.25,7],[11.75,4],[12.25,4],[12.75,1],[13.25,3],[14.75,2],[15.75,1]],"ENT|new":[[9.25,1],[9.75,5],[10.25,8],[10.75,17],[11.25,43],[11.75,44],[12.25,24],[12.75,47],[13.25,44],[13.75,45],[14.25,14],[14.75,11],[15.25,25],[15.75,5],[16.25,9],[16.75,14],[17.25,3],[17.75,1],[18.25,5],[19.25,3]],"ENT|review":[[7.25,1],[7.75,5],[8.25,12],[8.75,12],[9.25,12],[9.75,12],[10.25,18],[10.75,10],[11.25,18],[11.75,18],[12.25,23],[12.75,11],[13.25,15],[13.75,10],[14.25,5],[14.75,9],[15.25,7],[15.75,2],[16.25,2],[16.75,2],[17.25,1],[17.75,1]],"General Medicine|follow-up":[[4.25,2],[4.75,9],[5.25,32],[5.75,79],[6.25,84],[6.75,61],[7.25,76],[7.75,76],[8.25,49],[8.75,55],[9.25,36],[9.75,24],[10.25,23],[10.75,15],[11.25,15],[11.75,4],[12.25,7],[12.75,7],[13.25,3],[13.75,3],[14.75,1],[15.25,3],[18.25,1]],"General Medicine|new":[[8.75,2],[9.25,7],[9.75,22],[10.25,35],[10.75,26],[11.25,39],[11.75,32],[12.25,27],[12.75,42],[13.25,38],[13.75,38],[14.25,14],[14.75,22],[15.25,38],[15.75,19],[16.25,7],[16.75,29],[17.25,14],[17.75,1],[18.25,25],[18.75,2],[19.25,8],[19.75,7],[20.25,2],[20.75,1],[21.25,1],[22.25,1],[22.75,1],[23.25,1],[23.75,1],[26.75,2]],"General Medicine|review":[[7.25,1],[7.75,3],[8.25,10],[8.75,16],[9.25,11],[9.75,18],[10.25,27],[10.75,22],[11.25,12],[11.75,24],[12.25,25],[12.75,19],[13.25,17],[13.75,17],[14.25,8],[14.75,22],[15.25,12],[15.75,6],[16.25,13],[16.75,5],[17.25,3],[17.75,6],[18.25,3],[18.75,5],[19.25,3],[19.75,1],[20.75,1],[21.75,1],[22.75,1]],"Gynaecology|follow-up":[[6.75,4],[7.25,5],[7.75,12],[8.25,22],[8.75,17],[9.25,86],[9.75,58],[10.25,59],[10.75,74],[11.25,32],[11.75,46],[12.25,22],[12.75,24],[13.25,15],[13.75,14],[14.25,3],[14.75,10],[15.25,7],[15.75,4],[16.25,2],[16.75,2],[18.75,2]],"Gynaecology|new":[[14.25,1],[14.75,4],[15.25,6],[15.75,4],[16.25,26],[16.75,11],[17.25,34],[17.75,20],[18.25,17],[18.75,51],[19.25,28],[19.75,36],[20.25,30],[20.75,30],[21.25,13],[21.75,16],[22.25,14],[22.75,18],[23.25,6],[23.75,3],[24.25,7],[24.75,2],[25.25,2],[25.75,1],[26.75,2],[27.25,2],[27.75,1],[31.25,1],[32.75,1]],"Gynaecology|review":[[8.75,1],[9.75,1],[10.25,1],[10.75,1],[11.25,4],[11.75,1],[12.25,10],[12.75,8],[13.25,27],[13.75,7],[14.25,19],[14.75,13],[15.25,10],[15.75,24],[16.25,17],[16.75,17],[17.25,16],[17.75,10],[18.25,12],[18.75,3],[19.25,4],[19.75,5],[20.25,6],[20.75,5],[21.25,3],[21.75,1],[22.25,2],[24.25,1],[25.25,1],[26.75,1]],"Neurology|follow-up":[[8.75,1],[9.25,9],[9.75,15],[10.25,16],[10.75,21],[11.25,30],[11.75,40],[12.25,24],[12.75,58],[13.25,47],[13.75,68],[14.25,41],[14.75,19],[15.25,48],[15.75,7],[16.25,22],[16.75,11],[17.25,1],[17.75,11],[18.25,9],[18.75,4],[19.25,5],[19.75,2],[20.25,2],[20.75,1]],"Neurology|new":[[19.75,1],[20.75,3],[21.25,1],[21.75,3],[22.25,2],[22.75,5],[23.25,9],[23.75,14],[24.25,8],[24.75,4],[25.25,22],[25.75,5],[26.25,16],[26.75,22],[27.25,6],[27.75,28],[28.25,8],[28.75,13],[29.25,28],[29.75,6],[30.25,16],[30.75,42],[31.25,1],[31.75,14],[32.25,39],[32.75,1],[33.25,14],[33.75,22],[34.75,3],[35.25,14],[35.75,1],[36.25,3],[36.75,4],[37.25,2],[38.25,3],[38.75,2],[39.25,1],[40.25,2],[40.75,1],[42.25,3]],"Neurology|review":[[11.75,2],[13.25,2],[13.75,3],[14.25,1],[14.75,8],[15.25,4],[15.75,11],[16.25,2],[16.75,4],[17.25,15],[17.75,9],[18.25,22],[18.75,12],[19.25,16],[19.75,18],[20.25,10],[20.75,11],[21.25,11],[21.75,15],[22.25,6],[22.75,10],[23.25,6],[23.75,2],[24.25,3],[24.75,5],[25.25,1],[25.75,2],[26.25,4],[26.75,1],[27.75,3],[28.25,1],[28.75,1],[29.25,2]],"Orthopaedics|follow-up":[[4.75,3],[5.25,7],[5.75,24],[6.25,40],[6.75,37],[7.25,74],[7.75,52],[8.25,124],[8.75,68],[9.25,63],[9.75,36],[10.25,39],[10.75,26],[11.25,19],[11.75,14],[12.25,10],[12.75,5],[13.25,5],[13.75,2],[14.25,5],[14.75,6],[15.25,2],[15.75,1],[16.25,1]],"Orthopaedics|new":[[9.75,4],[10.25,5],[10.75,19],[11.25,15],[11.75,29],[12.25,18],[12.75,22],[13.25,27],[13.75,33],[14.25,31],[14.75,50],[15.25,43],[15.75,41],[16.25,29],[16.75,42],[17.25,32],[17.75,22],[18.25,20],[18.75,13],[19.25,18],[19.75,8],[20.25,7],[20.75,3],[21.25,5],[21.75,4],[22.75,1],[23.75,2],[25.75,1]],"Orthopaedics|review":[[7.25,1],[7.75,4],[8.25,3],[8.75,9],[9.25,9],[9.75,12],[10.25,11],[10.75,15],[11.25,21],[11.75,14],[12.25,24],[12.75,15],[13.25,26],[13.75,20],[14.25,7],[14.75,21],[15.25,21],[15.75,11],[16.25,4],[16.75,13],[17.25,10],[17.75,4],[18.25,1],[18.75,1],[19.25,3],[19.75,4],[20.25,2],[20.75,3],[21.25,1],[22.25,1],[22.75,1]],"Paediatrics|follow-up":[[6.75,14],[7.25,34],[7.75,50],[8.25,50],[8.75,76],[9.25,100],[9.75,81],[10.25,58],[10.75,68],[11.25,80],[11.75,58],[12.25,64],[12.75,27],[13.25,46],[13.75,40],[14.25,7],[14.75,17],[15.25,9],[15.75,9],[16.25,4],[16.75,3],[17.25,3],[17.75,1],[18.25,3],[19.25,2],[19.75,1],[20.25,2],[21.25,1],[22.75,1]],"Paediatrics|new":[[11.25,2],[11.75,2],[12.25,5],[12.75,13],[13.25,9],[13.75,20],[14.25,10],[14.75,36],[15.25,31],[15.75,27],[16.25,32],[16.75,36],[17.25,20],[17.75,44],[18.25,55],[18.75,24],[19.25,34],[19.75,27],[20.25,39],[20.75,35],[21.25,12],[21.75,34],[22.25,35],[22.75,5],[23.25,34],[23.75,19],[24.25,2],[24.75,12],[25.25,14],[25.75,9],[26.25,6],[26.75,10],[27.25,6],[28.25,3],[28.75,6],[29.25,2],[30.25,1],[30.75,5],[31.75,1],[32.25,2],[33.25,2]],"Paediatrics|review":[[8.25,1],[9.25,3],[9.75,9],[10.25,14],[10.75,11],[11.25,18],[11.75,16],[12.25,31],[12.75,13],[13.25,24],[13.75,19],[14.25,20],[14.75,31],[15.25,27],[15.75,24],[16.25,18],[16.75,18],[17.25,12],[17.75,17],[18.25,14],[18.75,9],[19.25,7],[19.75,7],[20.25,2],[20.75,8],[21.25,6],[21.75,6],[22.25,2],[22.75,3],[23.25,2],[23.75,2],[24.25,2],[24.75,1],[25.25,1],[26.25,2],[28.25,1]]}}};/*END_SLOT_DATA*/</script>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Slot prediction · interactive notes</div>
+  <h1>OPD Slot Lab</h1>
+  <p class="sub">Every idea from the lessons as something you can move. Drag a slider, and the formula, the numbers and the chart change together. The written notes (<code>notes/A01-framing.md</code>, <code>notes/A02-simulator.md</code>) have the full explanations; this page is for playing with them.</p>
+</header>
+
+<nav aria-label="Lessons">
+  <a href="#a1">A1 · Framing</a>
+  <a href="#lab-cost">Slot cost</a>
+  <a href="#lab-pinball">Pinball loss</a>
+  <a href="#lab-po">Ask the PO</a>
+  <a href="#a2">A2 · Simulator</a>
+  <a href="#lab-rule">Hidden rule</a>
+  <a href="#lab-noise">Log-normal noise</a>
+  <a href="#lab-z">z-scores</a>
+  <a href="#lab-oracle">Oracle</a>
+  <a href="#lab-heat">Heatmap</a>
+</nav>
+
+<!-- ============================== A1 ============================== -->
+<section class="lesson" id="a1">
+  <div class="lesson-head">
+    <div class="eyebrow">Lesson A1 · lifecycle stage 0, framing</div>
+    <h2>Which slot should we book?</h2>
+    <p>Consult times are right-skewed, and running late is worse than sitting idle. So the right slot is not the average visit; it's the quantile set by how much worse an overrun is than idle time.</p>
+  </div>
+
+  <div class="lab" id="lab-cost">
+    <div class="lab-head"><span class="tag">Lab 1</span><h3>The cost of every slot</h3></div>
+    <p class="say">Each minute a visit runs past its slot costs \(c_{over}\); each idle minute costs \(c_{idle}\). Edit the visits or the costs and watch the cheapest slot move. The flat bottom is always where the share of visits below it equals \(\frac{c_{over}}{c_{over}+c_{idle}}\).</p>
+    <div class="controls">
+      <div class="ctl" style="grid-column: 1 / -1">
+        <label for="visits">Visit lengths (minutes, separated by commas)</label>
+        <input type="text" id="visits" value="8, 9, 10, 11, 12, 13, 14, 16, 20, 27">
+        <span class="err" id="visitsErr" hidden></span>
+      </div>
+      <div class="ctl"><label for="cOver">Overrun cost per minute <output id="cOverOut"></output></label><input type="range" id="cOver" min="1" max="20" step="1" value="4"></div>
+      <div class="ctl"><label for="cIdle">Idle cost per minute <output id="cIdleOut"></output></label><input type="range" id="cIdle" min="1" max="10" step="1" value="1"></div>
+      <div class="ctl"><label for="inspect">Inspect slot <output id="inspectOut"></output></label><input type="range" id="inspect" min="2" max="40" step="0.5" value="18"></div>
+    </div>
+    <div class="formula" id="costFormula"></div>
+    <p class="say" id="costSay"></p>
+    <div class="formula" id="slopeFormula"></div>
+    <p class="say" id="slopeSay"></p>
+    <div class="chart"><canvas id="costChart" aria-label="Total cost against slot length"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-pinball">
+    <div class="lab-head"><span class="tag">Lab 2</span><h3>The pinball loss</h3></div>
+    <p class="say">Divide the slot cost by \(c_{over}+c_{idle}\) and you get the loss a quantile model minimises:</p>
+    <div class="formula">\[ L_q(y,\hat y) = \begin{cases} q\,(y-\hat y) & y \ge \hat y \;\;\text{(ran over)}\\ (1-q)\,(\hat y-y) & y < \hat y \;\;\text{(idle)} \end{cases} \]</div>
+    <div class="controls">
+      <div class="ctl"><label for="pq">Quantile q <output id="pqOut"></output></label><input type="range" id="pq" min="0.05" max="0.95" step="0.01" value="0.8"></div>
+      <div class="ctl"><label for="pe">Actual − predicted (minutes) <output id="peOut"></output></label><input type="range" id="pe" min="-15" max="15" step="0.5" value="5"></div>
+    </div>
+    <div class="formula" id="pinFormula"></div>
+    <p class="say" id="pinSay"></p>
+    <div class="chart short"><canvas id="pinChart" aria-label="Pinball loss against error"></canvas></div>
+    <details>
+      <summary>The loss decides what the model predicts</summary>
+      <div class="tablewrap"><table>
+        <tr><th>Train with</th><th>The model learns</th></tr>
+        <tr><td>\((y-\hat y)^2\)</td><td>the mean</td></tr>
+        <tr><td>\(|y-\hat y|\) (pinball, q = 0.5)</td><td>the median</td></tr>
+        <tr><td>\(L_q\)</td><td>the q-th quantile</td></tr>
+      </table></div>
+    </details>
+  </div>
+
+  <div class="lab" id="lab-po">
+    <div class="lab-head"><span class="tag">Lab 3</span><h3>Ask the PO, get a quantile</h3></div>
+    <p class="say">The PO answers in plain words; each answer turns into a quantile. Your PO rejected 4:1 and said "maybe" to 2 in 10, which points to P67–P75.</p>
+    <div class="controls">
+      <div class="ctl"><label for="poN">"Waiting is N times worse than idle" <output id="poNOut"></output></label><input type="range" id="poN" min="1" max="15" step="0.5" value="4"></div>
+      <div class="ctl"><label for="poK">"k out of 10 may run late" <output id="poKOut"></output></label><input type="range" id="poK" min="0" max="9" step="1" value="2"></div>
+    </div>
+    <div class="grid3">
+      <div class="formula" id="poNFormula"></div>
+      <div class="formula" id="poKFormula"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== A2 ============================== -->
+<section class="lesson" id="a2">
+  <div class="lesson-head">
+    <div class="eyebrow">Lesson A2 · lifecycle stage 1, collect</div>
+    <h2>The simulated hospital</h2>
+    <p>actual minutes = hidden rule × noise. A model can learn the rule; nobody can predict the noise. Because we wrote both, we know the best score any model could reach.</p>
+  </div>
+
+  <div class="lab" id="lab-rule">
+    <div class="lab-head"><span class="tag">Lab 4</span><h3>The hidden rule, step by step</h3></div>
+    <p class="say">Extra work adds minutes; pace multiplies them; the Dermatology drift is added last. Pick a booking and follow the arithmetic. Defaults: Siddhant's new appointment with Dr Deepak on Monday at HSR.</p>
+    <div class="controls">
+      <div class="ctl"><label for="rDoc">Doctor</label><select id="rDoc"></select></div>
+      <div class="ctl"><label for="rVisit">Visit type</label><select id="rVisit"><option value="new">new</option><option value="follow-up">follow-up</option><option value="review">report review</option></select></div>
+      <div class="ctl"><label for="rClinic">Clinic</label><select id="rClinic"></select></div>
+      <div class="ctl"><label for="rDate">Date <output id="rDay"></output></label><input type="date" id="rDate" value="2026-03-09" min="2026-01-01" max="2026-08-31"></div>
+      <div class="ctl"><label for="rTime">Slot time</label><select id="rTime"></select></div>
+      <div class="ctl"><label for="rAge">Patient age</label><input type="number" id="rAge" min="0" max="100" value="34"></div>
+      <div class="ctl"><label for="rReports">Prior reports</label><input type="number" id="rReports" min="0" max="20" value="2"></div>
+      <div class="ctl"><span class="lbl">Extras</span>
+        <label class="check"><input type="checkbox" id="rInterp"> Interpreter needed</label>
+        <label class="check"><input type="checkbox" id="rTele"> Video consult</label>
+      </div>
+      <div class="ctl"><label for="rQ">Book quantile <output id="rQOut"></output></label><input type="range" id="rQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+    </div>
+    <span class="err" id="rErr" hidden></span>
+    <div class="tablewrap"><table id="ruleTable"></table></div>
+    <div class="formula" id="ruleFormula"></div>
+    <div class="stats">
+      <div class="stat"><span>Expected (rule)</span><strong id="rExp"></strong></div>
+      <div class="stat"><span>Typical, P50</span><strong id="rP50"></strong></div>
+      <div class="stat"><span id="rPqLbl">Safe</span><strong id="rPq"></strong></div>
+      <div class="stat"><span>Slot to book</span><strong id="rSlot"></strong></div>
+    </div>
+    <p class="say sub">The model never sees the doctor's speed or the expected minutes, only the doctor's name and the booking fields. It has to learn each doctor's pace from past visits.</p>
+  </div>
+
+  <div class="lab" id="lab-noise">
+    <div class="lab-head"><span class="tag">Lab 5</span><h3>Multiplicative log-normal noise</h3></div>
+    <p class="say">Draw \(Z\) from a symmetric bell, then multiply the visit by \(e^Z\). Percentiles carry straight through \(e^Z\); the mean does not, which is why the centre is shifted to \(\mu=-\sigma^2/2\).</p>
+    <div class="controls">
+      <div class="ctl"><label for="nSig">Noise σ <output id="nSigOut"></output></label><input type="range" id="nSig" min="0.05" max="0.8" step="0.01" value="0.28"></div>
+      <div class="ctl"><label for="nQ">Quantile q <output id="nQOut"></output></label><input type="range" id="nQ" min="0.5" max="0.99" step="0.01" value="0.8"></div>
+    </div>
+    <div class="formula" id="noiseFormula"></div>
+    <p class="say" id="noiseSay"></p>
+    <div class="grid3">
+      <div class="chart short"><canvas id="zChart" aria-label="Distribution of Z"></canvas></div>
+      <div class="chart short"><canvas id="expChart" aria-label="The e to the Z conversion"></canvas></div>
+      <div class="chart short"><canvas id="noiseChart" aria-label="Distribution of the noise multiplier"></canvas></div>
+    </div>
+  </div>
+
+  <div class="lab" id="lab-z">
+    <div class="lab-head"><span class="tag">Lab 6</span><h3>z-scores</h3></div>
+    <p class="say">A z-score counts standard deviations from the mean: \(z = \frac{x-\text{mean}}{\text{SD}}\). Every normal curve has the same shape in these units, so each z marks a fixed share below it. 0.8416 is a z-score, not a standard deviation.</p>
+    <div class="controls">
+      <div class="ctl"><label for="zz">z <output id="zzOut"></output></label><input type="range" id="zz" min="-3" max="3" step="0.01" value="0.84"></div>
+      <div class="ctl"><span class="lbl">Jump to a share below</span>
+        <div class="chips" id="zChips"></div>
+      </div>
+      <div class="ctl"><label for="zMean">Heights: mean (cm)</label><input type="number" id="zMean" value="165"></div>
+      <div class="ctl"><label for="zSd">Heights: SD (cm)</label><input type="number" id="zSd" value="10" min="0.1" step="0.5"></div>
+    </div>
+    <div class="formula" id="zFormula"></div>
+    <div class="chart short"><canvas id="zzChart" aria-label="Standard normal curve with share below z"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-oracle">
+    <div class="lab-head"><span class="tag">Lab 7</span><h3>The oracle vs a fixed slot</h3></div>
+    <p class="say">The oracle knows every visit's expected minutes but not its noise. Its score is the floor for any model. Numbers are computed from the 11,144 July–August visits in the simulation. Try a noisier hospital with σ.</p>
+    <div class="controls">
+      <div class="ctl"><label for="oQ">Oracle books quantile <output id="oQOut"></output></label><input type="range" id="oQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+      <div class="ctl"><label for="oFix">Fixed slot for everyone <output id="oFixOut"></output></label><input type="range" id="oFix" min="10" max="30" step="1" value="15"></div>
+      <div class="ctl"><label for="oSig">Noise σ <output id="oSigOut"></output></label><input type="range" id="oSig" min="0.1" max="0.6" step="0.01" value="0.28"></div>
+      <div class="ctl"><span class="lbl">Booking grid</span><label class="check"><input type="checkbox" id="oRound" checked> Round slots up to 5 min</label></div>
+      <div class="ctl"><label for="oVisit">Example visit</label><select id="oVisit"><option value="13.7">Siddhant, Dr Deepak, new (13.7 min)</option><option value="7">General Medicine follow-up (7 min)</option><option value="28">Neurology new, 2 reports (28 min)</option></select></div>
+    </div>
+    <div class="tablewrap"><table id="oracleTable"></table></div>
+    <div class="formula" id="oracleFormula"></div>
+    <div class="grid3">
+      <div class="chart"><canvas id="tradeChart" aria-label="Overrun rate against idle minutes for every quantile"></canvas></div>
+      <div class="chart"><canvas id="visitChart" aria-label="Distribution of one visit's length with the booked slot"></canvas></div>
+    </div>
+  </div>
+
+  <div class="lab" id="lab-heat">
+    <div class="lab-head"><span class="tag">Lab 8</span><h3>Who runs late? By department and visit type</h3></div>
+    <p class="say">Each cell is the share of July–August visits that would run past their slot. A fixed slot is too short for some cells and too long for others; booking a quantile per visit makes every cell run late at about the same rate.</p>
+    <div class="controls">
+      <div class="ctl"><span class="lbl">Booking rule</span>
+        <div class="seg" role="group" aria-label="Booking rule"><button type="button" id="hmFixedBtn" aria-pressed="true">Fixed slot</button><button type="button" id="hmOracleBtn" aria-pressed="false">Oracle quantile</button></div>
+      </div>
+      <div class="ctl"><label for="hmFix">Fixed slot <output id="hmFixOut"></output></label><input type="range" id="hmFix" min="10" max="30" step="1" value="15"></div>
+      <div class="ctl"><label for="hmQ">Oracle quantile <output id="hmQOut"></output></label><input type="range" id="hmQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
+      <div class="ctl"><span class="lbl">Booking grid</span><label class="check"><input type="checkbox" id="hmRound"> Round oracle slots up to 5 min</label></div>
+    </div>
+    <p class="say" id="heatSay"></p>
+    <div class="tablewrap"><div class="heat" id="heat"></div></div>
+    <div class="legend"><span>0% late</span><i></i><span>100% late</span><span>· small text: average idle minutes</span></div>
+  </div>
+</section>
+
+<footer>The data inside this page is generated from the simulator by <code>notes/interactive/build_data.py</code>. Rerun it after changing <code>slotpred/world.py</code>.</footer>
+</div>
+
+<script>
+(function () {
+"use strict";
+const D = window.SLOT_DATA;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const f = (x, d = 2) => Number(x).toFixed(d);
+const pct = (x, d = 0) => (x * 100).toFixed(d) + "%";
+const R = String.raw;
+
+/* ---------- maths ---------- */
+function erf(x) { const s = x < 0 ? -1 : 1; x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+  return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x)); }
+const Phi = x => 0.5 * (1 + erf(x / Math.SQRT2));
+const phi = x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+function invPhi(p) {
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239],
+        b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572],
+        c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783],
+        d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416], pl = 0.02425;
+  let q, r;
+  if (p < pl) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if (p > 1 - pl) { q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  q = p - 0.5; r = q * q;
+  return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5]) * q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+/* a visit with expected m minutes and log-normal noise sigma (mean 1) */
+const visitPdf = (x, m, s) => phi((Math.log(x / m) + s * s / 2) / s) / (x * s);
+const quantileOf = (m, q, s) => m * Math.exp(-s * s / 2 + invPhi(q) * s);
+const roundUp = x => Math.max(5, Math.ceil(x / 5 - 1e-9) * 5);
+function score(m, slot, s) {           /* closed forms for one visit type */
+  const d = (Math.log(slot / m) + s * s / 2) / s, cov = Phi(d);
+  const idle = slot * cov - m * Phi(d - s);
+  return { late: 1 - cov, idle, over: m - slot + idle, absErr: m - slot + 2 * idle };
+}
+function population(hist, slotOf, s) {
+  let n = 0, late = 0, idle = 0, over = 0, slot = 0, abs = 0;
+  for (const [m, k] of hist) { const sl = slotOf(m), r = score(m, sl, s);
+    n += k; late += k * r.late; idle += k * r.idle; over += k * r.over; slot += k * sl; abs += k * r.absErr; }
+  return { late: late / n, idle: idle / n, over: over / n, slot: slot / n, mae: abs / n, n };
+}
+
+/* ---------- live TeX ---------- */
+const texQueue = new Set(); let texFrame = 0, mjChain = Promise.resolve();
+function tex(el, s, display = true) {
+  el.textContent = display ? "\\[" + s + "\\]" : "\\(" + s + "\\)";
+  texQueue.add(el);
+  if (!texFrame) texFrame = requestAnimationFrame(flushTex);
+}
+function flushTex() {
+  texFrame = 0;
+  const MJ = window.MathJax;
+  if (!MJ || !MJ.typesetPromise) return;
+  const els = [...texQueue]; texQueue.clear();
+  mjChain = mjChain.then(() => { try { MJ.typesetClear(els); } catch (e) {} return MJ.typesetPromise(els); }).catch(() => {});
+}
+window.addEventListener("load", () => { const t = setInterval(() => { if (window.MathJax && window.MathJax.typesetPromise) { clearInterval(t); flushTex(); } }, 300); });
+
+/* ---------- charts ---------- */
+function hexA(hex, a) { const h = hex.replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+const charts = [];
+function makeChart(id, xTitle, yTitle, extra = {}) {
+  const c = new Chart($(id), { type: "scatter", data: { datasets: [] }, options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { labels: { boxWidth: 12, font: { family: "IBM Plex Sans", size: 12 }, filter: i => !i.text.startsWith("_") } },
+               tooltip: { enabled: extra.tooltip !== false, filter: i => !i.dataset.label.startsWith("_") } },
+    scales: { x: { type: "linear", title: { display: !!xTitle, text: xTitle }, min: extra.xmin, max: extra.xmax },
+              y: { title: { display: !!yTitle, text: yTitle }, min: extra.ymin, max: extra.ymax, display: extra.yDisplay !== false } } } });
+  charts.push(c); return c;
+}
+function paint(c) {
+  const m = css("--muted"), g = css("--grid");
+  for (const ax of Object.values(c.options.scales)) { ax.ticks = { ...(ax.ticks || {}), color: m }; ax.grid = { color: g }; if (ax.title) ax.title.color = m; }
+  c.options.plugins.legend.labels.color = m;
+  c.update("none");
+}
+const line = (label, data, color, o = {}) => ({ label, data, showLine: true, pointRadius: 0, borderColor: color, backgroundColor: color, borderWidth: 2, ...o });
+const vline = (label, x, y0, y1, color, dash = []) => line(label, [{ x, y: y0 }, { x, y: y1 }], color, { borderDash: dash, borderWidth: 1.5 });
+const area = (label, data, color, a = 0.22) => ({ label, data, showLine: true, pointRadius: 0, borderWidth: 0, fill: "origin", backgroundColor: hexA(color, a) });
+function range(a, b, step) { const out = []; for (let x = a; x <= b + 1e-9; x += step) out.push(+x.toFixed(6)); return out; }
+function bindOut(id, fmt) { const el = $(id), out = $(id + "Out"); const set = () => out.textContent = fmt(+el.value); el.addEventListener("input", set); set(); }
+
+/* ================= Lab 1: slot cost ================= */
+const costChart = makeChart("costChart", "slot booked (minutes)", "total cost", { ymin: 0 });
+bindOut("cOver", v => v); bindOut("cIdle", v => v); bindOut("inspect", v => f(v, 1) + " min");
+function updCost() {
+  const raw = $("visits").value.split(/[,\s]+/).filter(Boolean).map(Number);
+  const v = raw.filter(x => isFinite(x) && x > 0).sort((a, b) => a - b);
+  const err = $("visitsErr");
+  if (v.length < 2 || v.length !== raw.length) { err.hidden = false; err.textContent = "Enter at least two positive numbers, separated by commas."; return; }
+  err.hidden = true;
+  const cO = +$("cOver").value, cI = +$("cIdle").value, s0 = +$("inspect").value;
+  const cost = s => v.reduce((t, y) => t + cO * Math.max(y - s, 0) + cI * Math.max(s - y, 0), 0);
+  const xs = range(Math.max(0, v[0] - 4), v[v.length - 1] + 6, 0.05), pts = xs.map(x => ({ x, y: cost(x) }));
+  const minC = Math.min(...pts.map(p => p.y)), flat = pts.filter(p => p.y <= minC + 1e-6);
+  const lo = flat[0].x, hi = flat[flat.length - 1].x, q = cO / (cO + cI);
+  const below = v.filter(y => y <= lo + 1e-9).length;
+  tex($("costFormula"), R`q^* = \frac{c_{over}}{c_{over}+c_{idle}} = \frac{${cO}}{${cO}+${cI}} = ${f(q)} \quad\Rightarrow\quad \text{book P}${Math.round(q * 100)}`);
+  $("costSay").innerHTML = `Cheapest slot: <b>${f(lo, 1)}${hi - lo > 0.06 ? "–" + f(hi, 1) : ""} min</b> (cost ${f(minC, 1)}). ${below} of ${v.length} visits (${pct(below / v.length)}) finish within it, the closest the data allows to ${pct(q)}. Mean ${f(v.reduce((a, b) => a + b) / v.length, 1)}, median ${f(v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2, 1)}.`;
+  const nA = v.filter(y => y > s0).length, nB = v.filter(y => y < s0).length, slope = -cO * nA + cI * nB;
+  tex($("slopeFormula"), R`\frac{dC}{ds}\Big|_{s=${f(s0, 1)}} = -c_{over}N_{above} + c_{idle}N_{below} = -${cO}\cdot${nA} + ${cI}\cdot${nB} = ${slope}`);
+  $("slopeSay").innerHTML = `At a ${f(s0, 1)}-minute slot the total cost is <b>${f(cost(s0), 1)}</b>. ` +
+    (slope < 0 ? "The slope is negative: a longer slot would be cheaper." : slope > 0 ? "The slope is positive: a shorter slot would be cheaper." : "The slope is zero: you're on the flat bottom.");
+  const top = Math.max(...pts.map(p => p.y));
+  const A = css("--accent"), L = css("--late"), I = css("--ink");
+  costChart.data.datasets = [
+    area("Cheapest region", pts.filter(p => p.x >= lo - 1e-9 && p.x <= hi + 1e-9), A, 0.25),
+    line("Total cost", pts, A),
+    vline("Inspected slot", s0, 0, top, I, [5, 4]),
+    { label: "Visits", data: v.map(x => ({ x, y: 0 })), pointStyle: "triangle", pointRadius: 6, backgroundColor: L, borderColor: L },
+  ];
+  costChart.options.scales.y.max = top * 1.05;
+  paint(costChart);
+}
+["visits", "cOver", "cIdle", "inspect"].forEach(id => $(id).addEventListener("input", updCost));
+
+/* ================= Lab 2: pinball ================= */
+const pinChart = makeChart("pinChart", "actual − predicted (minutes)", "loss", { ymin: 0, xmin: -15, xmax: 15 });
+bindOut("pq", v => f(v)); bindOut("pe", v => (v > 0 ? "+" : "") + f(v, 1));
+function updPin() {
+  const q = +$("pq").value, e = +$("pe").value, L = e >= 0 ? q * e : (q - 1) * e;
+  tex($("pinFormula"), e >= 0
+    ? R`L_{${f(q)}} = q\,(y-\hat y) = ${f(q)} \times ${f(e, 1)} = ${f(L)}`
+    : R`L_{${f(q)}} = (1-q)\,(\hat y-y) = ${f(1 - q)} \times ${f(-e, 1)} = ${f(L)}`);
+  $("pinSay").innerHTML = (e > 0 ? `The visit ran <b>${f(e, 1)} min over</b> the prediction.` : e < 0 ? `The visit finished <b>${f(-e, 1)} min early</b>; the doctor was idle.` : "Perfect prediction: no loss.") +
+    ` With q = ${f(q)}, a minute of overrun costs <b>${f(q / (1 - q), 1)}×</b> a minute of idle time (q / (1 − q)).`;
+  const xs = range(-15, 15, 0.5);
+  const A = css("--accent"), Lc = css("--late"), Ic = css("--idle");
+  pinChart.data.datasets = [
+    line("Ran over (under-predicted)", xs.filter(x => x >= 0).map(x => ({ x, y: q * x })), Lc),
+    line("Idle (over-predicted)", xs.filter(x => x <= 0).map(x => ({ x, y: (q - 1) * x })), Ic),
+    { label: "This example", data: [{ x: e, y: L }], pointRadius: 7, backgroundColor: A, borderColor: A },
+  ];
+  pinChart.options.scales.y.max = Math.max(15 * Math.max(q, 1 - q), 1) * 1.05;
+  paint(pinChart);
+}
+["pq", "pe"].forEach(id => $(id).addEventListener("input", updPin));
+
+/* ================= Lab 3: PO translator ================= */
+bindOut("poN", v => f(v, 1) + "×"); bindOut("poK", v => v + " in 10");
+function updPO() {
+  const N = +$("poN").value, k = +$("poK").value, q1 = N / (N + 1), q2 = 1 - k / 10;
+  tex($("poNFormula"), R`q = \frac{N}{N+1} = \frac{${f(N, 1)}}{${f(N + 1, 1)}} = ${f(q1)} \;\Rightarrow\; \text{P}${Math.round(q1 * 100)}`);
+  tex($("poKFormula"), R`q = 1-\frac{k}{10} = 1-\frac{${k}}{10} = ${f(q2)} \;\Rightarrow\; \text{N} = \frac{q}{1-q} = ${q2 < 1 ? f(q2 / (1 - q2), 1) : "\\infty"}`);
+}
+["poN", "poK"].forEach(id => $(id).addEventListener("input", updPO));
+
+/* ================= Lab 4: hidden rule ================= */
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+$("rDoc").innerHTML = D.doctors.map((d, i) => `<option value="${i}">Dr ${d.name} · ${d.dept} · speed ${f(d.speed)}</option>`).join("");
+$("rClinic").innerHTML = Object.keys(D.clinicFactor).map(c => `<option>${c}</option>`).join("");
+$("rTime").innerHTML = range(9, 17.75, 0.25).map(h => { const t = `${String(Math.floor(h)).padStart(2, "0")}:${String(Math.round((h % 1) * 60)).padStart(2, "0")}`; return `<option value="${h}"${t === "10:30" ? " selected" : ""}>${t}</option>`; }).join("");
+$("rClinic").value = "HSR";
+bindOut("rQ", v => "P" + Math.round(v * 100));
+$("rDoc").addEventListener("input", () => { const d = D.doctors[+$("rDoc").value]; if (!d.clinics.includes($("rClinic").value)) $("rClinic").value = d.clinics[0]; });
+function updRule() {
+  const doc = D.doctors[+$("rDoc").value], dept = doc.dept, visit = $("rVisit").value;
+  const age = Math.max(0, +$("rAge").value || 0), reports = Math.max(0, Math.round(+$("rReports").value || 0));
+  const interp = $("rInterp").checked, tele = $("rTele").checked, clinic = $("rClinic").value;
+  const date = $("rDate").value || "2026-03-09", hour = Math.floor(+$("rTime").value), q = +$("rQ").value, s = D.sigma;
+  const wd = (new Date(date + "T00:00:00").getDay() + 6) % 7;
+  $("rDay").textContent = DAYS[wd];
+  const err = $("rErr");
+  if (wd === 6) { err.hidden = false; err.textContent = "Clinics are closed on Sunday. Pick another date."; return; }
+  err.hidden = true;
+  const base = D.departments[dept][D.visitTypes.indexOf(visit)];
+  const rep = D.reportMin * Math.min(reports, D.reportCap), itp = interp ? D.interpreterMin : 0, work = base + rep + itp;
+  const fac = [
+    ["Age 65+", age >= D.elderlyAge ? D.elderlyFactor : 1, `age ${age}`],
+    ["Baby under 3 (Paediatrics)", dept === "Paediatrics" && age < D.infantAge ? D.infantFactor : 1, dept === "Paediatrics" ? `age ${age}` : "not Paediatrics"],
+    ["Video consult", tele ? D.teleFactor : 1, tele ? "yes" : "no"],
+    ["Doctor's pace", doc.speed, `Dr ${doc.name}`],
+    ["Clinic", D.clinicFactor[clinic], clinic],
+    ["Day", D.dayFactor[String(wd)], DAYS[wd]],
+    ["Time of day", hour < D.earlyHour ? D.earlyFactor : hour >= D.lateHour ? D.lateFactor : 1, hour < D.earlyHour ? "before 10:00" : hour >= D.lateHour ? "from 16:00" : "midday"],
+  ];
+  const pace = fac.reduce((p, r) => p * r[1], 1);
+  const drift = dept === D.drift.dept && date >= D.drift.date ? D.drift.extra : 0;
+  const exp = work * pace + drift, med = exp * Math.exp(-s * s / 2), pq = quantileOf(exp, q, s), slot = roundUp(pq);
+  const row = (a, b, c, cls = "") => `<tr class="${cls}"><td>${a}</td><td>${b}</td><td class="num">${c}</td></tr>`;
+  $("ruleTable").innerHTML = `<tr><th>Step</th><th>Why</th><th class="num">Value</th></tr>` +
+    row("Base", `${dept}, ${visit}`, f(base, 1)) +
+    row("+ Reports", `${Math.min(reports, D.reportCap)} × ${D.reportMin}${reports > D.reportCap ? ` (capped at ${D.reportCap})` : ""}`, "+" + f(rep, 1)) +
+    row("+ Interpreter", interp ? "translating" : "not needed", "+" + f(itp, 1)) +
+    row("= Work", "extra work is added", f(work, 1), "total") +
+    fac.map(r => row("× " + r[0], r[2], "×" + f(r[1]))).join("") +
+    row("= Pace", "pace multiplies", "×" + f(pace, 3), "total") +
+    row("+ Drift", drift ? "Dermatology skin-check from 1 July" : "none", "+" + f(drift, 1));
+  tex($("ruleFormula"), R`\text{expected} = \text{work}\times\text{pace} + \text{drift} = ${f(work, 1)} \times ${f(pace, 3)} + ${f(drift, 1)} = ${f(exp)}\text{ min}` +
+    R`\qquad P_{${Math.round(q * 100)}} = ${f(exp)}\,e^{-\sigma^2/2 + ${f(invPhi(q), 3)}\,\sigma} = ${f(pq)}`);
+  $("rExp").textContent = f(exp, 1) + " min"; $("rP50").textContent = f(med, 1) + " min";
+  $("rPqLbl").textContent = `Safe, P${Math.round(q * 100)}`; $("rPq").textContent = f(pq, 1) + " min"; $("rSlot").textContent = slot + " min";
+}
+["rDoc", "rVisit", "rClinic", "rDate", "rTime", "rAge", "rReports", "rInterp", "rTele", "rQ"].forEach(id => $(id).addEventListener("input", updRule));
+
+/* ================= Lab 5: noise ================= */
+const zChart = makeChart("zChart", "Z", "", { yDisplay: false, ymin: 0 });
+const expChart = makeChart("expChart", "Z", "noise = e^Z", { ymin: 0 });
+const noiseChart = makeChart("noiseChart", "noise multiplier", "", { yDisplay: false, ymin: 0 });
+bindOut("nSig", v => f(v)); bindOut("nQ", v => "P" + Math.round(v * 100));
+function updNoise() {
+  const s = +$("nSig").value, q = +$("nQ").value, mu = -s * s / 2, z = invPhi(q), Zq = mu + z * s, Nq = Math.exp(Zq), med = Math.exp(mu);
+  tex($("noiseFormula"), R`\mu = -\tfrac{\sigma^2}{2} = ${f(mu, 3)},\quad z_{${f(q)}} = ${f(z, 4)},\quad Z_q = \mu + z\sigma = ${f(Zq, 3)},\quad e^{Z_q} = ${f(Nq, 3)},\quad \frac{P_{${Math.round(q * 100)}}}{\text{median}} = e^{z\sigma} = ${f(Math.exp(z * s), 3)}`);
+  const lo14 = 14 * Math.exp(mu + invPhi(0.1) * s), hi14 = 14 * Math.exp(mu + invPhi(0.9) * s);
+  $("noiseSay").innerHTML = `Noise median <b>${f(med, 3)}</b>, mean <b>1.000</b>, P${Math.round(q * 100)} <b>${f(Nq, 3)}</b>. A visit expected to take 14 min: 80% finish between <b>${f(lo14, 1)} and ${f(hi14, 1)} min</b>. Even a perfect model would be off by about <b>${pct(2 * Phi(s) - 1, 0)}</b> of the expected time (oracle MAE).`;
+  const A = css("--accent"), Lc = css("--late"), Ic = css("--idle"), M = css("--muted"), I = css("--ink");
+  const zs = range(mu - 4 * s, mu + 4 * s, s / 40), zp = zs.map(x => ({ x, y: phi((x - mu) / s) / s }));
+  const zTop = Math.max(...zp.map(p => p.y)) * 1.08;
+  zChart.data.datasets = [area(`_below`, zp.filter(p => p.x <= Zq), A), line("Z ~ Normal(μ, σ)", zp, I),
+    vline("centre μ", mu, 0, zTop, M, [3, 3]), vline(`Z at P${Math.round(q * 100)}`, Zq, 0, zTop, Lc)];
+  zChart.options.scales.y.max = zTop; paint(zChart);
+  const ep = zs.map(x => ({ x, y: Math.exp(x) }));
+  expChart.data.datasets = [line("e^Z", ep, I), line("_guide", [{ x: Zq, y: 0 }, { x: Zq, y: Nq }, { x: zs[0], y: Nq }], Lc, { borderDash: [4, 4], borderWidth: 1.5 }),
+    { label: `e^${f(Zq, 3)} = ${f(Nq, 3)}`, data: [{ x: Zq, y: Nq }], pointRadius: 6, backgroundColor: Lc, borderColor: Lc }];
+  expChart.options.scales.y.max = Math.exp(zs[zs.length - 1]); paint(expChart);
+  const xs = zs.map(Math.exp), np = xs.map(x => ({ x, y: visitPdf(x, 1, s) }));
+  const nTop = Math.max(...np.map(p => p.y)) * 1.08;
+  noiseChart.data.datasets = [area("_below", np.filter(p => p.x <= Nq), A), line("noise = e^Z", np, I),
+    vline(`median ${f(med, 3)}`, med, 0, nTop, M, [3, 3]), vline("mean 1.000", 1, 0, nTop, Ic, [6, 3]), vline(`P${Math.round(q * 100)} ${f(Nq, 3)}`, Nq, 0, nTop, Lc)];
+  noiseChart.options.scales.y.max = nTop; noiseChart.options.scales.x.min = xs[0]; noiseChart.options.scales.x.max = xs[xs.length - 1]; paint(noiseChart);
+}
+["nSig", "nQ"].forEach(id => $(id).addEventListener("input", updNoise));
+
+/* ================= Lab 6: z-scores ================= */
+const zzChart = makeChart("zzChart", "z (standard deviations from the mean)", "", { yDisplay: false, ymin: 0, xmin: -3.5, xmax: 3.5 });
+bindOut("zz", v => f(v));
+$("zChips").innerHTML = [0.5, 0.67, 0.75, 0.8, 0.9, 0.95].map(p => `<button type="button" data-p="${p}">${p * 100}%</button>`).join("");
+$("zChips").addEventListener("click", e => { const b = e.target.closest("button"); if (!b) return; $("zz").value = f(invPhi(+b.dataset.p), 2); $("zz").dispatchEvent(new Event("input")); });
+function updZ() {
+  const z = +$("zz").value, share = Phi(z), mean = +$("zMean").value || 0, sd = Math.max(+$("zSd").value || 1, 0.1);
+  tex($("zFormula"), R`\Phi(${f(z)}) = ${f(share * 100, 1)}\%\ \text{below} \qquad x = \text{mean} + z\cdot\text{SD} = ${f(mean, 1)} + ${f(z)}\times${f(sd, 1)} = ${f(mean + z * sd, 1)}\text{ cm}`);
+  const xs = range(-3.5, 3.5, 0.05), p = xs.map(x => ({ x, y: phi(x) }));
+  const A = css("--accent"), Lc = css("--late"), I = css("--ink");
+  zzChart.data.datasets = [area(`${f(share * 100, 1)}% below`, p.filter(o => o.x <= z), A), line("standard normal", p, I), vline(`z = ${f(z)}`, z, 0, 0.43, Lc)];
+  zzChart.options.scales.y.max = 0.43; paint(zzChart);
+}
+["zz", "zMean", "zSd"].forEach(id => $(id).addEventListener("input", updZ));
+
+/* ================= Lab 7: oracle ================= */
+const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits running late (%)", { ymin: 0 });
+const visitChart = makeChart("visitChart", "actual minutes", "", { yDisplay: false, ymin: 0, xmin: 0, xmax: 60, tooltip: false });
+bindOut("oQ", v => "P" + Math.round(v * 100)); bindOut("oFix", v => v + " min"); bindOut("oSig", v => f(v));
+function updOracle() {
+  const q = +$("oQ").value, F = +$("oFix").value, s = +$("oSig").value, rnd = $("oRound").checked, m = +$("oVisit").value, H = D.test.hist;
+  const slotOf = (mm, qq) => { const x = quantileOf(mm, qq, s); return rnd ? roundUp(x) : x; };
+  const o = population(H, mm => slotOf(mm, q), s), fx = population(H, () => F, s);
+  const oracleMae = H.reduce((t, [mm, k]) => t + k * mm * (2 * Phi(s) - 1), 0) / o.n;
+  const tr = (name, a, b, fmt, better) => `<tr><td>${name}</td><td class="num">${fmt(a)}</td><td class="num">${fmt(b)}</td><td>${better(a, b)}</td></tr>`;
+  const cmp = (a, b) => a < b - 1e-9 ? "oracle lower" : a > b + 1e-9 ? "fixed lower" : "same";
+  $("oracleTable").innerHTML = `<tr><th>July–August, ${D.test.visits.toLocaleString()} visits</th><th class="num">Oracle P${Math.round(q * 100)}</th><th class="num">Fixed ${F} min</th><th></th></tr>` +
+    tr("Visits running late", o.late, fx.late, x => pct(x, 1), cmp) +
+    tr("Doctor idle per visit", o.idle, fx.idle, x => f(x) + " min", cmp) +
+    tr("Late minutes per visit", o.over, fx.over, x => f(x) + " min", cmp) +
+    tr("Average slot booked", o.slot, fx.slot, x => f(x, 1) + " min", cmp) +
+    tr("MAE of the typical guess", oracleMae, fx.mae, x => f(x) + " min", cmp);
+  tex($("oracleFormula"), R`\text{MAE}_{oracle} = \overline{\text{expected}}\times\big(2\Phi(\sigma)-1\big) = ${f(D.test.meanExpected)}\times${f(2 * Phi(s) - 1, 3)} = ${f(oracleMae)}\text{ min}`);
+  const A = css("--accent"), Lc = css("--late"), Ic = css("--idle"), I = css("--ink"), M = css("--muted");
+  const qs = range(0.5, 0.95, 0.01);
+  const curve = r => qs.map(qq => { const p = population(H, mm => { const x = quantileOf(mm, qq, s); return r ? roundUp(x) : x; }, s); return { x: +p.idle.toFixed(3), y: +(p.late * 100).toFixed(2) }; });
+  tradeChart.data.datasets = [
+    line("Exact slots", curve(false), A),
+    line("Rounded up to 5", curve(true), A, { borderDash: [6, 4] }),
+    { label: `Fixed ${F} min`, data: [{ x: fx.idle, y: fx.late * 100 }], pointStyle: "crossRot", pointRadius: 9, borderWidth: 3, borderColor: I, backgroundColor: I },
+    { label: `Oracle P${Math.round(q * 100)}`, data: [{ x: o.idle, y: o.late * 100 }], pointRadius: 7, backgroundColor: Lc, borderColor: Lc },
+  ];
+  paint(tradeChart);
+  const xs = range(0.5, 60, 0.25), p = xs.map(x => ({ x, y: visitPdf(x, m, s) })), top = Math.max(...p.map(o2 => o2.y)) * 1.08;
+  const sl = slotOf(m, q), one = score(m, sl, s);
+  visitChart.data.datasets = [
+    area(`runs late: ${pct(one.late)}`, p.filter(o2 => o2.x >= sl), Lc, 0.28),
+    line(`expected ${m} min`, p, M),
+    vline(`slot ${f(sl, rnd ? 0 : 1)} min`, sl, 0, top, Lc),
+    vline(`typical ${f(m * Math.exp(-s * s / 2), 1)} min`, m * Math.exp(-s * s / 2), 0, top, Ic, [4, 4]),
+  ];
+  visitChart.options.scales.y.max = top; paint(visitChart);
+}
+["oQ", "oFix", "oSig", "oRound", "oVisit"].forEach(id => $(id).addEventListener("input", updOracle));
+
+/* ================= Lab 8: heatmap ================= */
+let hmMode = "fixed";
+bindOut("hmFix", v => v + " min"); bindOut("hmQ", v => "P" + Math.round(v * 100));
+function setMode(m) { hmMode = m; $("hmFixedBtn").setAttribute("aria-pressed", m === "fixed"); $("hmOracleBtn").setAttribute("aria-pressed", m === "oracle"); updHeat(); }
+$("hmFixedBtn").addEventListener("click", () => setMode("fixed"));
+$("hmOracleBtn").addEventListener("click", () => setMode("oracle"));
+function updHeat() {
+  const s = D.sigma, F = +$("hmFix").value, q = +$("hmQ").value, rnd = $("hmRound").checked;
+  const cols = ["follow-up", "review", "new"], depts = Object.keys(D.departments);
+  const slotOf = hmMode === "fixed" ? () => F : mm => { const x = quantileOf(mm, q, s); return rnd ? roundUp(x) : x; };
+  let html = `<div class="h"></div>` + cols.map(c => `<div class="h">${c}</div>`).join(""), rates = [];
+  for (const d of depts) {
+    html += `<div class="r">${d}</div>`;
+    for (const c of cols) {
+      const h = D.test.cells[`${d}|${c}`];
+      if (!h) { html += `<div class="c">–</div>`; continue; }
+      const r = population(h, slotOf, s); rates.push(r.late);
+      html += `<div class="c" style="background: color-mix(in srgb, var(--late) ${Math.round(r.late * 85)}%, var(--surface))" title="${d}, ${c}: ${pct(r.late, 1)} late, ${f(r.idle, 1)} idle min, ${r.n} visits"><strong>${pct(r.late)}</strong><span>${f(r.idle, 1)} idle</span></div>`;
+    }
+  }
+  $("heat").innerHTML = html;
+  const lo = Math.min(...rates), hi = Math.max(...rates);
+  $("heatSay").innerHTML = `${hmMode === "fixed" ? `Fixed ${F}-minute slot` : `Oracle P${Math.round(q * 100)}${rnd ? ", rounded up to 5" : ""}`}: late rates range from <b>${pct(lo)}</b> to <b>${pct(hi)}</b> across the 24 cells.`;
+}
+["hmFix", "hmQ", "hmRound"].forEach(id => $(id).addEventListener("input", updHeat));
+
+/* ---------- run everything, and repaint on theme change ---------- */
+const all = [updCost, updPin, updPO, updRule, updNoise, updZ, updOracle, updHeat];
+all.forEach(fn => fn());
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+(mq.addEventListener ? mq.addEventListener("change", () => all.forEach(fn => fn())) : null);
+new MutationObserver(() => all.forEach(fn => fn())).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
