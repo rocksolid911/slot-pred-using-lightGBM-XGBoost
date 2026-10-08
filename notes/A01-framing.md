@@ -106,6 +106,33 @@ $$
 
 **Success:** beat today's rule of **a fixed 15-minute slot for everyone**, with fewer overruns, less idle time, or both.
 
+## Asking the business: questions for the PO
+
+The 4:1 ratio is a **business decision**, not a maths one. Ask the product owner in plain words, with concrete minutes and no "costs" or "quantiles".
+
+**Main question (the cost ratio):**
+> "When an appointment runs over, the next patients wait and the doctor may finish late. When it finishes early, the doctor sits free until the next patient. Which is worse for us, and roughly by how much? Is 10 minutes of patients waiting about as bad as 10, 20, 40 or 90 minutes of the doctor sitting free?"
+
+**Easier version (often simpler to answer):**
+> "Out of every 10 appointments, how many are you OK with running past their booked slot?"
+
+| PO says | Overrun : idle | Book |
+|---|---|---|
+| "5 out of 10 is fine" / "equally bad" | 1 : 1 | P50 |
+| "2 out of 10" / "waiting is 4× worse" | 4 : 1 | **P80** |
+| "1 out of 10" / "waiting is 9× worse" | 9 : 1 | P90 |
+
+Translation rule: an answer of "N times worse" means book quantile $N/(N+1)$; "k out of 10 may run late" means book quantile $1 - k/10$.
+
+**Follow-up questions (they reveal the real costs):**
+1. What actually happens when a doctor runs late: overtime pay, complaints, patients leaving, bad reviews?
+2. Can the doctor use free minutes (paperwork, calls, walk-ins)? If yes, idle time is cheap, so book a higher quantile.
+3. Is it different by department, clinic or time of day? (A late running in the last slot means overtime; early in the day it cascades through the whole session.)
+4. Do we promise patients anything, such as "seen within 15 minutes of your appointment time"?
+5. Would you rather see more patients per day, or have fewer delays? (Throughput versus punctuality.)
+
+**Show the trade-off with numbers.** For example: "Dr Deepak's typical new consult is about 13 minutes. Allowing 2 in 10 to run late means booking 20-minute slots; allowing 5 in 10 means 15-minute slots: 12 instead of 9 patients in a 3-hour session, but half of them start late."
+
 ## Self-check
 
 <details><summary>Q1. Why is the mean a bad slot for consult times?</summary>
