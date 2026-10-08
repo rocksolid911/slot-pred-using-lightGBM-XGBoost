@@ -150,6 +150,22 @@ Three ways to ask the PO whether 4:1 (P80) is right. **Ask question 3 first**: i
 | "That's too much free time; doctors are expensive" | Ratio lower than 4 | Move to **P67** (2:1) or **P75** (3:1) |
 | "It depends on the department or time of day" | Different ratios in different places | Ask for each case; we can use a different quantile per department |
 
+### What the PO answered (2026-10-08)
+
+| Question | Answer | What it tells us |
+|---|---|---|
+| 1. 4 min free to save 1 min waiting? | **No** | Overrun is **less** than 4× worse than idle |
+| 2. 40 min free to save 10 min waiting? | **No** | Same: ratio below 4:1 (consistent with Q1, good) |
+| 3. 2 in 10 running late acceptable? | **Maybe** | P80 is at the **edge** of acceptable, not comfortably inside it |
+
+**Reading:** the true ratio is probably **2:1 to 3:1**, which means booking **P67 to P75**, a little below our assumed P80.
+
+**Still to pin down:**
+- "Would you accept **2** minutes free to save 1 minute of waiting? **3** minutes?" The first "yes" gives the ratio.
+- "Would **3 in 10** running late be acceptable?" If yes, P70 is the target.
+
+**Decision for the project:** treat **q as a setting, not a hard-coded 0.8**. Train models for several quantiles (0.67, 0.75, 0.8). In A8, show the PO a trade-off table from real predictions (overrun rate against idle minutes for each q) and let them choose. People judge real numbers more reliably than abstract ratios.
+
 ## Self-check
 
 <details><summary>Q1. Why is the mean a bad slot for consult times?</summary>
