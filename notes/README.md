@@ -13,8 +13,8 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 
 | # | Lesson | Note | Status |
 |---|---|---|---|
-| A1 | Framing: target, P50 vs P80, metrics | [A01-framing.md](A01-framing.md) | ⏳ next |
-| A2 | Data: simulating the hospital | | |
+| A1 | Framing: target, P50 vs P80, metrics | [A01-framing.md](A01-framing.md) | ✅ done |
+| A2 | Data: simulating the hospital | | ⏳ next |
 | A3 | Cleaning and features, leakage | | |
 | A4 | Baselines | | |
 | A5 | LightGBM, quantile objective | | |
