@@ -102,7 +102,8 @@ def expected_minutes(*, dept, visit_type, age, reports, interpreter, tele,
         date         "YYYY-MM-DD" (strings in this format compare correctly with < and >=)
 
     The design (lesson A2):
-        work  = base + reports + interpreter                      <- ADDITIVE (extra work)
+        work  = base + min(reports, REPORT_CAP) * REPORT_MIN + interpreter
+                                                                  <- ADDITIVE (extra work)
         pace  = elderly x infant x tele x doctor x clinic x day x time-of-day   <- MULTIPLICATIVE
         drift = +3 min for Dermatology from July                   <- ADDITIVE, after the pace
 
@@ -110,8 +111,30 @@ def expected_minutes(*, dept, visit_type, age, reports, interpreter, tele,
 
     Use the constants defined above; don't hard-code numbers.
     """
-    # TODO(you)
-    raise NotImplementedError
+    report_work = min(reports, REPORT_CAP) * REPORT_MIN
+    work = DEPARTMENTS[dept][VISIT_TYPES.index(visit_type)] + report_work + (INTERPRETER_MIN if interpreter else 0)
+    
+    pace = 1
+    if age >= ELDERLY_AGE:
+        pace *= ELDERLY_FACTOR
+    if dept == "Paediatrics" and age < INFANT_AGE:
+        pace *= INFANT_FACTOR
+    if tele:
+        pace *= TELE_FACTOR
+    pace *= doctor_speed
+    pace *= CLINIC_FACTOR[clinic]
+    pace *= DAY_FACTOR[weekday]
+    if hour < EARLY_HOUR:
+        pace *= EARLY_FACTOR
+    elif hour >= LATE_HOUR:
+        pace *= LATE_FACTOR
+
+    drift = 0
+    if dept == DRIFT_DEPT and date >= DRIFT_DATE:
+        drift += DRIFT_EXTRA_MIN
+
+    expected = work * pace + drift
+    return expected
 
 
 def sample_noise(rng: np.random.Generator, n: int, sigma: float = NOISE_SIGMA) -> np.ndarray:
@@ -121,5 +144,5 @@ def sample_noise(rng: np.random.Generator, n: int, sigma: float = NOISE_SIGMA) -
     Pick mu so that the mean is 1.  Hint: rng.lognormal(mean=..., sigma=..., size=n),
     where `mean` is mu, the mean of Z, NOT the mean of the result.
     """
-    # TODO(you)
-    raise NotImplementedError
+    mu = -0.5 * sigma**2
+    return rng.lognormal(mean=mu, sigma=sigma, size=n)
