@@ -183,6 +183,7 @@ The oracle in the A2 notebook *does* use `expected_minutes`. That's fine, becaus
 
 ## Gotchas
 - **Hidden truth ≠ feature.** Simulator internals (speed, expected minutes, noise) must never reach the training data. A test guards the export.
+- **0.8416 is not a standard deviation.** It's a z-score: a count of SDs, the same for every normal distribution. The SD is **σ = 0.28** (the SD of $Z$, the *log* of the noise, not of the minutes). Distance to the 80th percentile = $0.8416 \times \sigma = 0.236$. Heights analogy: SD 10 cm, so the 80th-percentile height = 165 + 0.8416 × 10 = 173.4 cm.
 - **Percentiles survive $e^Z$; the mean doesn't.** $e^{\text{mean of } Z}$ is the median of the noise, not its mean.
 - σ is an **assumption** in a simulator. With real data, **measure** it from log residuals.
 - The side chat's table said "6 and 30 min" for σ = 0.60; the exact values are 5.4 and 25.2. Check quick estimates numerically.
