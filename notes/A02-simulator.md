@@ -356,8 +356,18 @@ No. It's part of the hidden rule and never exported; the model sees only the doc
 </details>
 
 ## In my words
-- the oracle MAE is the minimu error no model can go belowno matter how good it is,its about how good or perfect is model close to not how much error acceptable
+- the oracle MAE is the minimum error no model can go below no matter how good it is,its about how good or perfect is model close to not how much error acceptable
 - visit time cant be nagative and its made of hidden rule * noise and no model can know noise
+- rounding up stretch the slot always not shrink it down and it will affect the short visit which have small slot time will pay more for rounding with respect to long slot time
+
+| Visit | P80 | Rounded up | Minutes added | Share of the visit |
+|---|---:|---:|---:|---:|
+| General Medicine follow-up | 8.5 | 10 | +1.5 | +18% |
+| Siddhant’s new consult | 16.7 | 20 | +3.3 | +20% |
+| Neurology new | 34.1 | 35 | +0.9 | +3% |
+
+One more way to see it: a 6-minute follow-up booked as 10 minutes leaves the doctor idle 40% of the slot, while a 34-minute consult booked as 35 barely notices. Rounding hurts short visits most.
+
 
 ## New terms
 Simulator, hidden rule, noise, additive effect, multiplicative effect, log-normal, σ (sigma), z-score, oracle, irreducible error, drift
