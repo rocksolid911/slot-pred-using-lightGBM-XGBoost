@@ -133,6 +133,21 @@ Translation rule: an answer of "N times worse" means book quantile $N/(N+1)$; "k
 
 **Show the trade-off with numbers.** For example: "Dr Deepak's typical new consult is about 13 minutes. Allowing 2 in 10 to run late means booking 20-minute slots; allowing 5 in 10 means 15-minute slots: 12 instead of 9 patients in a 3-hour session, but half of them start late."
 
+### Checking our 4:1 assumption
+
+Three ways to ask the PO whether 4:1 (P80) is right. **Ask question 3 first**: it describes what the schedule will feel like, which is easier to judge than a ratio. Then use question 1 to confirm the number.
+
+1. **Direct:** "To save the next patients **1 minute** of waiting, would you accept the doctor sitting free for up to **4 minutes**?"
+2. **At a scale people can picture:** "Over a session, would you accept about **40 minutes** of the doctor's free time if it saved patients **10 minutes** of waiting?"
+3. **In outcomes:** "We're planning slots where about **2 out of every 10** appointments run past their time, and in the other 8 the doctor gets a few free minutes. Is that acceptable, or should fewer run late?"
+
+| PO says | Meaning | Action |
+|---|---|---|
+| "Yes, that's about right" | 4:1 confirmed | Keep **P80** |
+| "Free time doesn't matter much; waiting is what hurts" | Ratio higher than 4 | Move to **P90** (9:1) |
+| "That's too much free time; doctors are expensive" | Ratio lower than 4 | Move to **P67** (2:1) or **P75** (3:1) |
+| "It depends on the department or time of day" | Different ratios in different places | Ask for each case; we can use a different quantile per department |
+
 ## Self-check
 
 <details><summary>Q1. Why is the mean a bad slot for consult times?</summary>
