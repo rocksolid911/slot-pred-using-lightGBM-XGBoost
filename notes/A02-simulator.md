@@ -5,6 +5,82 @@
 ## In one line
 **actual minutes = hidden rule × noise**: the rule is what a model can learn; the log-normal noise is what no model can know. Because we wrote both, we know the best score any model could reach.
 
+## Start here: one visit, end to end
+
+### The big picture: we are the game designer
+In a video game, the **designer** writes the rules (how fast characters move, how dice rolls work). The **player** only sees the screen and has to work out the rules by playing.
+
+| Game | This project |
+|---|---|
+| Designer, who writes the rules | **Us**: `world.py` decides how long consults take |
+| Player, who sees only the screen | **The ML model**: sees only the EMR export (the CSV) |
+| Grading the player | Because we wrote the rules, we can check whether the model found them |
+
+In a real hospital nobody knows the rules. We simulate only because we have no real data, and as a bonus we get an **answer key**.
+
+### Follow one visit through the simulator
+
+**Step 1, the booking (facts).** `simulate.py` creates: Siddhant, 34, **new** visit, **Dr Deepak** (General Medicine), **Monday** 2 March, **10:30**, **HSR**, **2 prior reports**, no interpreter, not video. All of this is known when the receptionist books.
+
+**Step 2, the rule (`expected_minutes`, which I wrote).**
+```
+work     = 12 (General Medicine, new) + 1.3 × 2 reports = 14.6
+pace     = 0.94 (Monday; everything else is neutral, 1.0)
+expected = 14.6 × 0.94 = 13.7 min
+```
+Meaning: *if this exact booking happened many times, it would take 13.7 minutes on average.*
+
+**Step 3, the dice roll (`sample_noise`, which I wrote).** One random multiplier per visit. The same booking on ten different days:
+
+| Day | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Dice (noise) | 1.70 | 0.47 | 1.08 | 0.82 | 0.85 | 0.91 | 0.55 | 0.90 | 0.75 | 2.44 |
+| Actual minutes (13.7 × dice) | 23.4 | 6.5 | 14.8 | 11.3 | 11.6 | 12.4 | 7.5 | 12.4 | 10.4 | 33.5 |
+
+The dice is everything the booking form can't know: a worried patient, a new symptom, a chatty patient. A real visit gets **one** roll, say 1.08, giving **14.8 minutes**.
+
+**Step 4, the clock.** An EMR doesn't store "14.8 minutes". It stores **timestamps**: the patient was called at 10:33:00 (3 minutes late), and the consult ended at 10:47:48. The duration (end − start) is something *we* compute in A4.
+
+**Step 5, the export.** What leaves the hospital is the booking facts plus the timestamps. **Not** exported: 13.7 (the rule), 1.08 (the dice) and Dr Deepak's speed. The model must learn from rows like this.
+
+```
+booking facts ──► rule ──► 13.7 ──► × dice 1.08 ──► 14.8 min ──► timestamps ──► CSV row
+ (exported)      (hidden)  (hidden)   (hidden)                    (exported)
+```
+
+### Replay that one booking 100,000 times
+
+![One booking replayed 100,000 times: a right-skewed hump from about 6 to 30 minutes](img/a02_one_booking.png)
+
+- **Same booking, very different lengths:** from about 6 to about 30 minutes.
+- **The rule (13.7) is the average**, and the median (13.2) sits slightly to its left: the long right tail is the skew from A1.
+- **P80 = 16.7, so the slot is 20.** Only **6.8%** of replays run past 20 minutes; **32.5%** would run past a fixed 15-minute slot.
+
+**This picture is the whole of A1 and A2 in one chart.** For every kind of booking, the model's job is to learn where this hump sits (median) and where its 80% line is (P80). It can never know which bar *today's* visit will land in.
+
+### The oracle: the rulebook, but no crystal ball
+Imagine someone who has read `world.py` and knows the 13.7 exactly. Their best guess for a typical visit is the median, 13.2. But each day's dice still scatters the actual length, so on average they miss by **3.0 minutes**.
+
+That's the **oracle's MAE**, the irreducible error. A model scoring about 3 minutes is close to perfect; no model can go lower, because nothing can predict the dice. A weather forecaster who understands the climate perfectly still can't promise exactly how much rain falls tomorrow.
+
+### What each step of the notebook does
+| Step | Question it answers |
+|---|---|
+| 2 Tests | Do my rule and dice behave as designed? |
+| 3 Generate | Run steps 1–5 for 21 doctors × 8 months, about 44,000 visits |
+| 4 Sanity checks | Does our fake hospital look like a real one? (skewed; departments in a sensible order; a July jump in Dermatology) |
+| 5 Oracle | Best possible score vs today's fixed 15-minute slot |
+
+### Map: story → file
+| Story step | File |
+|---|---|
+| 1 Booking facts | [simulate.py](../slotpred/simulate.py): `_make_patients`, `_make_appointments` |
+| 2 The rule | [world.py](../slotpred/world.py): `expected_minutes` |
+| 3 The dice | [world.py](../slotpred/world.py): `sample_noise` |
+| 4 The clock | [simulate.py](../slotpred/simulate.py): `consult_start`, `consult_end` |
+| 5 Export (+ messy problems, spoiler) | `_messy_export.py` → `data/raw_emr_export.csv` |
+| Answer key | `data/_hidden_truth.csv` (expected minutes, used only for the oracle) |
+
 ## Intuition
 
 ### Why simulate?
