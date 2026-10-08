@@ -69,6 +69,13 @@ def test_infant_factor_only_in_paediatrics():
     assert minutes(dept="General Medicine", age=1) == pytest.approx(minutes(dept="General Medicine", age=8))
 
 
+def test_age_boundaries():
+    # "under 3" means a 3-year-old is NOT an infant; "65+" means a 65-year-old IS elderly
+    assert minutes(dept="Paediatrics", age=w.INFANT_AGE) == pytest.approx(minutes(dept="Paediatrics", age=8))
+    assert minutes(dept="Paediatrics", age=w.INFANT_AGE - 1) > minutes(dept="Paediatrics", age=8)
+    assert minutes(age=w.ELDERLY_AGE) > minutes(age=w.ELDERLY_AGE - 1)
+
+
 def test_pace_multipliers():
     base = minutes()
     assert minutes(tele=True) == pytest.approx(base * w.TELE_FACTOR)
