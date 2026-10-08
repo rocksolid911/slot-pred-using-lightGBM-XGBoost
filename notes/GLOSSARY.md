@@ -5,6 +5,7 @@ One line per term, plus the lesson where it is explained properly. Keep the list
 | Term | Meaning | Lesson |
 |---|---|---|
 | Baseline | The simple rule a model must beat to be worth deploying (here: a fixed 15-min slot) | [A1](A01-framing.md) |
+| Cold start | Predicting for something with no history (a new doctor); the model can't have learned its pattern | [A2](A02-simulator.md) |
 | Conditional quantile | A quantile that depends on the inputs: the P80 *for this doctor, visit type, …* | [A1](A01-framing.md) |
 | Additive effect | A factor that adds fixed minutes whatever the base (interpreter +4) | [A2](A02-simulator.md) |
 | Coverage | Share of visits finishing within the predicted P80; should be ≈ 0.80. Gameable on its own | [A1](A01-framing.md) |

@@ -12,7 +12,7 @@ TS = "%Y-%m-%d %H:%M:%S"
 def export(world: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     df = world.copy()
     n = len(df)
-    start, end, check_in = df["consult_start"].copy(), df["consult_end"].copy(), df["check_in"]
+    start, end, check_in = (df[c].astype("datetime64[ns]") for c in ("consult_start", "consult_end", "check_in"))
 
     # 1. Doctor forgot to close the visit -> hours-long "consults"
     forgot = rng.random(n) < 0.010

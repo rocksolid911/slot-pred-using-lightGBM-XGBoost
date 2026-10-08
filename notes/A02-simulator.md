@@ -167,7 +167,22 @@ P80      = 13.7 × 1.217          = 16.7 min   ->  20-min slot
 | Coverage | | |
 | Average idle (min) | | |
 
+### Is the doctor's `speed` leakage? (my question)
+**No, because it never leaves the simulator.** Leakage means the *model* uses information it won't have at prediction time. `speed` lives only in the hidden world; the export the model trains on ([_messy_export.py](../slotpred/_messy_export.py) column list) contains only the doctor's **name**, which *is* known at booking. A test, [tests/test_export.py](../tests/test_export.py), fails if any hidden column (`doctor_speed`, `expected_minutes`, `noise`, `actual_minutes`) ever appears in the export.
+
+The real world works the same way: every doctor has a pace, but no system records it. The model has to **learn each doctor's pace from their past visits**, through the doctor feature. That's also why **Dr Nikhil Verma** (joins in July) is hard: no past visits, so no way to learn his pace. This is called a **cold start**.
+
+**Where speed-related leakage *can* creep in (A4):** a feature such as "this doctor's median consult time" is legitimate **only if computed from visits before the one being predicted**. Computed over all data, including the visit itself or future visits, it leaks the answer.
+
+| Data | Who sees it | Role |
+|---|---|---|
+| `world` (speed, expected minutes, noise) | Only us, for sanity checks and the oracle | The hidden truth |
+| `raw_emr_export.csv` | The model | Everything a real hospital would hand over |
+
+The oracle in the A2 notebook *does* use `expected_minutes`. That's fine, because it's a **benchmark** for the best possible score, never a model we deploy.
+
 ## Gotchas
+- **Hidden truth ≠ feature.** Simulator internals (speed, expected minutes, noise) must never reach the training data. A test guards the export.
 - **Percentiles survive $e^Z$; the mean doesn't.** $e^{\text{mean of } Z}$ is the median of the noise, not its mean.
 - σ is an **assumption** in a simulator. With real data, **measure** it from log residuals.
 - The side chat's table said "6 and 30 min" for σ = 0.60; the exact values are 5.4 and 25.2. Check quick estimates numerically.
@@ -202,6 +217,11 @@ Additive. Translating adds roughly the same minutes whatever the consult's lengt
 <details><summary>Q6. How would you estimate σ from real data?</summary>
 
 Fit a model, take log(actual) − log(predicted) for every visit, and compute the standard deviation.
+</details>
+
+<details><summary>Q7. The doctor's speed isn't in real data. Is using it in the simulator leakage?</summary>
+
+No. It's part of the hidden rule and never exported; the model sees only the doctor's name and must learn the pace from past visits. It would be leakage only if a hidden column reached the training data, or if a "doctor's average time" feature were computed using the visit being predicted or later visits.
 </details>
 
 ## In my words
