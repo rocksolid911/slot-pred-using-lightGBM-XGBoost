@@ -9,22 +9,25 @@ Your revision material for the project. One file per lesson, all following [_TEM
 
 Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md) for every formula on one page.
 
+**Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into.
+
 ## Track A: production model (LightGBM / XGBoost)
 
-| # | Lesson | Note | Status |
-|---|---|---|---|
-| A1 | Framing: target, P50 vs P80, metrics | [A01-framing.md](A01-framing.md) | ✅ done |
-| A2 | Data: simulating the hospital | | ⏳ next |
-| A3 | Cleaning and features, leakage | | |
-| A4 | Baselines | | |
-| A5 | LightGBM, quantile objective | | |
-| A6 | XGBoost comparison | | |
-| A7 | Honest evaluation | | |
-| A8 | Tuning and SHAP explainability | | |
-| A9 | Experiment tracking with MLflow | | |
-| A10 | Serving with FastAPI | | |
-| A11 | Monitoring and drift | | |
-| A12 | Retraining: champion vs challenger | | |
+| # | Lifecycle stage | Lesson | Note | Status |
+|---|---|---|---|---|
+| A1 | 0 Framing | Target, P50 vs P80, pinball loss, metrics | [A01-framing.md](A01-framing.md) | ✅ done |
+| A2 | 1 Collect | Simulating the hospital (a stand-in for an EMR export) | | ⏳ next |
+| A3 | 2 Explore | EDA: distributions, missing values, leakage smells | | |
+| A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | | |
+| A5 | 4 Baseline | Fixed 15 min; department × visit-type median | | |
+| A6 | 5 Train | LightGBM with the quantile objective | | |
+| A7 | 5 Train | XGBoost comparison | | |
+| A8 | 6 Evaluate | Slices, calibration, error analysis | | |
+| A9 | 7 Select | Tuning, SHAP, fairness slices, model card | | |
+| A10 | Cross-cutting | Experiment tracking with MLflow | | |
+| A11 | 8 Deploy | FastAPI, container, shadow mode | | |
+| A12 | 9 Monitor | Drift and weekly performance | | |
+| A13 | 10 Retrain | Champion vs challenger, rollback | | |
 
 ## Track B: language model (learning)
 

@@ -92,6 +92,7 @@ $$
 - I expected the median to be cheapest; the plot showed it wasn't. **Check your intuition against the plot.**
 - When asked "what fraction lies below the flat region", count the visits, don't read the axis.
 - Reading the flat region by eye undercounted it: it runs to 27, not 25. Check the edge values numerically.
+- **Coverage below target means slots are too short**, not too long. 65% coverage means 35% of visits overrun, so patients wait. Too much idle time shows up as coverage *above* target (for example 95%). I got this backwards in the quick check.
 - Coverage alone can be gamed: book 60 minutes and coverage is 100%. Always report it **with idle time**, or use the pinball loss.
 - Quantile conventions differ between tools (16.8 vs 16 vs 20 for 10 points). This stops mattering with thousands of rows.
 
