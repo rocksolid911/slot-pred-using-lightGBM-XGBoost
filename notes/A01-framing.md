@@ -85,6 +85,8 @@ $$
 | 16 – 20 | **95 (minimum, flat)** |
 | 25 | 120 |
 
+![Cost of each slot: 4:1 gives a flat minimum from 16 to 20 (P80); 9:1 gives 20 to 27 (P90)](img/a01_cost_curves.png)
+
 - **4 : 1** → flat minimum from **16 to 20**; 8 of 10 visits lie at or below it, i.e. **80%**
 - **9 : 1** → flat minimum from **20 to 27**; 9 of 10 visits lie at or below it, i.e. **90%**
 
