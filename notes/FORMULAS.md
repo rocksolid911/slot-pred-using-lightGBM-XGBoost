@@ -33,6 +33,9 @@ $$\text{median}=e^{\mu},\qquad Q_q=e^{\mu+z_q\sigma},\qquad \frac{P80}{\text{med
 **z-score** ([A2](A02-simulator.md))
 $$z=\frac{x-\text{mean}}{\text{SD}},\qquad z_{0.5}=0,\; z_{0.8}=0.8416,\; z_{0.9}=1.2816,\; z_{0.95}=1.645$$
 
+**Oracle MAE (irreducible error) for log-normal noise** ([A2](A02-simulator.md)): $\Phi$ is the normal CDF.
+$$\text{MAE}_{oracle}=\text{expected}\times\big(2\Phi(\sigma)-1\big)\;=\;0.22\times\text{expected}\;(\sigma=0.28)$$
+
 **Estimating σ from data** ([A2](A02-simulator.md))
 $$\hat\sigma=\operatorname{SD}\big(\log y_i-\log\hat y_i\big)$$
 

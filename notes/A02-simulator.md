@@ -235,13 +235,62 @@ P80      = 13.7 × 1.217          = 16.7 min   ->  20-min slot
 | The oracle | [A02_simulator.ipynb](../notebooks/A02_simulator.ipynb) | me (TODO) |
 
 ## Our results
-<!-- To fill in after the notebook: tests passing, number of visits, oracle vs fixed 15-min slot. -->
+- **Tests:** 18 passing (15 for `world.py`, 2 for the export, 1 setup). My first `expected_minutes` failed 7 tests (6 bugs); a missing boundary test let `age <= 3` slip through once more.
+- **Data:** 43,747 visits Jan–Aug 2026; test period (Jul–Aug) 11,144 visits; average expected length 13.97 min.
 
-| | Oracle | Fixed 15-min slot |
-|---|---|---|
-| MAE (min) | | |
-| Coverage | | |
-| Average idle (min) | | |
+### The oracle vs today's rule (test period, Jul–Aug)
+
+The oracle knows `expected_minutes` (the rule) but never the noise. q is a setting: the PO rejected 4:1 (see A1), so all candidates are shown.
+
+| | Fixed 15 | P67 exact | P67 rounded | P75 exact | P75 rounded | P80 exact | P80 rounded |
+|---|---|---|---|---|---|---|---|
+| MAE of P50 guess (min) | 5.77 | 3.08 | 3.08 | 3.08 | 3.08 | 3.08 | 3.08 |
+| **Visits running late** | **35.2%** | 33.6% | 17.0% | 25.2% | 12.5% | 20.3% | 9.8% |
+| Avg idle (min) | 3.37 | 2.27 | 4.24 | 3.00 | 5.12 | 3.60 | 5.77 |
+| Avg late minutes | 2.40 | 1.10 | 0.57 | 0.80 | 0.41 | 0.63 | 0.32 |
+| Avg slot (min) | 15.0 | 15.2 | 17.7 | 16.2 | 18.7 | 17.0 | 19.5 |
+
+![(a) one visit's outcomes and the slot each quantile books; (b) late vs idle trade-off for every q; (c) who the fixed 15-minute slot hurts](img/a02_oracle.png)
+
+**Fixed 15: share of visits running late**
+
+| | follow-up | review | new |
+|---|---|---|---|
+| Cardiology | 9% | 55% | 89% |
+| Dermatology | 7% | 40% | 41% |
+| ENT | 3% | 16% | 30% |
+| General Medicine | 2% | 29% | 37% |
+| Gynaecology | 10% | 52% | 78% |
+| Neurology | 28% | 80% | 98% |
+| Orthopaedics | 4% | 33% | 49% |
+| Paediatrics | 15% | 45% | 72% |
+
+### Answers to the notebook questions
+
+**1. Oracle MAE = 3.08 min: the irreducible error.** My first answer called it "the minimum slot booking time"; it isn't a slot length. It is the smallest **average prediction error** any model can reach, because no model can know the noise. Closed form for log-normal noise:
+$$
+\text{MAE}_{oracle} = \text{expected} \times \big(2\Phi(\sigma) - 1\big) = 0.22 \times \text{expected} \quad(\sigma = 0.28)
+$$
+Average expected 13.97 min → 0.22 × 13.97 = **3.08**. Any real model (LightGBM in A6) scores **≥ 3.08**; today's rule scores 5.77. The floor grows with σ.
+
+**2. Coverage.** The exact P80 slot covers **79.7%** (≈ 80%, up to sampling). Rounded up to 5 minutes it covers **90.2%**: rounding adds about **2.5 min** to each slot on average, buying coverage with idle time (3.6 → 5.8 min). **Consequence:** on a 5-minute grid, a lower q already meets the target. Rounded P67 lets only 17% run late, inside the PO's "2 in 10". (Alternative to discuss later: round to the *nearest* 5 instead of up.)
+
+**3. Fixed 15 fits nobody.** 35% of visits run late. It's **too short for long visits** (Neurology new 98%, Cardiology new 89%, Gynaecology new 78%, Paediatrics new 72%) and **too long for short ones** (General Medicine follow-up 2% late, about 7 idle minutes). The exact oracle P67 books almost the same total time (15.2 min on average) but **halves the late minutes (1.1 vs 2.4) and cuts idle (2.3 vs 3.4)**. Prediction doesn't add time; it **moves time to the visits that need it**.
+
+**4. Why P80 ≈ 1.27 × median for every visit.** $P80/\text{median} = e^{\mu + z\sigma}/e^{\mu} = e^{z\sigma} = e^{0.8416 \times 0.28} = 1.27$. The expected minutes and μ cancel, so the *relative* margin depends only on σ. In minutes it grows with the visit: 10 min → +2.7, 30 min → +8. For the PO's candidates: P75 → ×1.21, P67 → ×1.13.
+
+### Step 5 code, explained
+
+| Piece | What it does |
+|---|---|
+| `test = world[world["date"] >= TEST_START]` | Only July–August, the period every model is judged on |
+| `expected_minutes * np.exp(-sigma**2/2)` | Oracle P50: the median of the noise is $e^{\mu}$ = 0.962 |
+| `expected_minutes * np.exp(-sigma**2/2 + norm.ppf(q)*sigma)` | Oracle P_q: `norm.ppf(q)` is the z-score for q (0.44, 0.67, 0.84 for P67, P75, P80) |
+| `np.ceil(p_q / 5) * 5` | Round **up** to the booking grid |
+| `summarise(guess, slot)` | One scorecard for every booking rule; `.clip(lower=0)` keeps only the positive part, like `np.maximum(..., 0)` in A1 |
+| Loop over `Q_CANDIDATES` | q is a business setting, never hard-coded |
+
+**My Step 5 bug (leakage):** my first oracle multiplied `actual_minutes` instead of `expected_minutes`. It scored MAE 0.54 and 100% coverage, **too good to be true**. `actual_minutes` contains the noise, so the oracle was predicting each visit from its own outcome. Also, `sigma` was only defined in an earlier cell: hidden notebook state.
 
 ### Is the doctor's `speed` leakage? (my question)
 **No, because it never leaves the simulator.** Leakage means the *model* uses information it won't have at prediction time. `speed` lives only in the hidden world; the export the model trains on ([_messy_export.py](../slotpred/_messy_export.py) column list) contains only the doctor's **name**, which *is* known at booking. A test, [tests/test_export.py](../tests/test_export.py), fails if any hidden column (`doctor_speed`, `expected_minutes`, `noise`, `actual_minutes`) ever appears in the export.
@@ -258,6 +307,9 @@ The real world works the same way: every doctor has a pace, but no system record
 The oracle in the A2 notebook *does* use `expected_minutes`. That's fine, because it's a **benchmark** for the best possible score, never a model we deploy.
 
 ## Gotchas
+- **Too good to be true means check for leakage.** My oracle used `actual_minutes` and scored MAE 0.54 with 100% coverage. The fix was `expected_minutes`.
+- **Hidden notebook state:** a variable defined in another cell (`sigma`) works until the kernel restarts. Define what a cell needs inside that cell.
+- **Rounding up to the grid adds about 2.5 min per slot**, which moves coverage from 80% to 90%. On a 5-minute grid, a lower q meets the same target.
 - **Hidden truth ≠ feature.** Simulator internals (speed, expected minutes, noise) must never reach the training data. A test guards the export.
 - **0.8416 is not a standard deviation.** It's a z-score: a count of SDs, the same for every normal distribution. The SD is **σ = 0.28** (the SD of $Z$, the *log* of the noise, not of the minutes). Distance to the 80th percentile = $0.8416 \times \sigma = 0.236$. Heights analogy: SD 10 cm, so the 80th-percentile height = 165 + 0.8416 × 10 = 173.4 cm.
 - **Percentiles survive $e^Z$; the mean doesn't.** $e^{\text{mean of } Z}$ is the median of the noise, not its mean.
