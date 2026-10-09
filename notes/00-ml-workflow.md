@@ -65,6 +65,8 @@ It is **a loop, not a line**. Evaluation sends you back to explore, prepare or t
 
 **Common mistakes:** skipping it and finding problems only after training; exploring the **test** set (this leaks your judgement into the model).
 
+**Full step-by-step flow for any dataset:** [00-eda-playbook.md](00-eda-playbook.md).
+
 ## 3 · Data preparation
 
 **Purpose:** turn raw data into model-ready data.

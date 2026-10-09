@@ -2,8 +2,35 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_numeric_dtype, is_string_dtype
 
 from .config import DATA
+
+
+def first_look(df: pd.DataFrame, date_col=None, max_levels=30):
+    """A first pass over ANY table (notes/00-eda-playbook.md, steps 2-4).
+
+    Prints structure and duplicates, missing % and distinct counts per column, numeric ranges
+    (placeholders like 999 show up as the max), the values of low-cardinality text columns
+    (spelling variants show up here) and, if `date_col` is given, rows per month (gaps, volume jumps).
+    """
+    print(f"{len(df):,} rows x {df.shape[1]} columns | exact duplicate rows: {df.duplicated().sum():,}")
+    summary = pd.DataFrame({
+        "dtype": df.dtypes.astype(str),
+        "missing_%": (df.isna().mean() * 100).round(2),
+        "distinct": df.nunique(),
+        "example": df.iloc[0],
+    })
+    print(summary.to_string())
+    numeric = [c for c in df.columns if is_numeric_dtype(df[c]) and df[c].dtype != bool]
+    if numeric:
+        print(df[numeric].describe(percentiles=[0.01, 0.5, 0.99]).T.round(2).to_string())
+    for c in df.columns:
+        if is_string_dtype(df[c]) and df[c].nunique() <= max_levels:
+            print(f"\n{c}:", df[c].value_counts(dropna=False).to_dict())
+    if date_col:
+        per_month = pd.to_datetime(df[date_col]).dt.to_period("M").value_counts().sort_index()
+        print("\nrows per month:", per_month.rename(index=str).to_dict())
 
 
 def load_raw() -> pd.DataFrame:

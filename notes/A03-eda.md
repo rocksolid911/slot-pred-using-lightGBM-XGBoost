@@ -15,6 +15,8 @@
 
 ### The EDA checklist (any dataset)
 
+The full, general version with code, red flags and a fix-decision guide is in [00-eda-playbook.md](00-eda-playbook.md). The quick start for any table is `first_look(df, date_col=...)` in [slotpred/eda.py](../slotpred/eda.py).
+
 | # | Check | Question | Tools |
 |---|---|---|---|
 | 1 | Shape and types | Is each column stored as what it really is? | `.shape`, `.dtypes`, `.head()` |

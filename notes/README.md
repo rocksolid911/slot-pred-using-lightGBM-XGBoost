@@ -11,7 +11,7 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 
 **Play with it:** every lesson has its own interactive lab page (sliders, live formulas, charts, heatmaps), listed on the hub [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf): [A1 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc), [A2 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA), [A3 labs](https://claude.ai/artifact/Qwyogp2WiEn824VPTSAWMK). Offline copies are in [interactive/](interactive/); open any `.html` in a browser. After changing `slotpred/world.py`, rebuild them with `.venv/Scripts/python.exe notes/interactive/build.py`.
 
-**Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into.
+**Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into. For exploring any new dataset, use [00-eda-playbook.md](00-eda-playbook.md).
 
 ## Track A: production model (LightGBM / XGBoost)
 
