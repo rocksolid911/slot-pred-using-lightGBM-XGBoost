@@ -1,0 +1,410 @@
+<title>A3 EDA Lab</title>
+<meta name="description" content="Robust statistics, outlier rules scored against the truth, MCAR vs MAR vs MNAR, and a process change no rule can see.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Spectral:wght@500;600&display=swap">
+<style>
+/* Layout: a lab notebook. One reading column; each concept is a "lab bench" panel with controls, live formula, chart. */
+:root {
+  --bg: #F3F6F7; --surface: #FFFFFF; --ink: #13252C; --muted: #56676E; --line: #D6DEE1;
+  --accent: #0E7C7B; --late: #C4463B; --idle: #4A6CA6; --soft: #E3EFEE; --grid: #E7ECEE;
+  --f-display: "Spectral", Georgia, serif; --f-body: "IBM Plex Sans", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D1518; --surface: #142024; --ink: #E2EBED; --muted: #94A6AC; --line: #26363C;
+  --accent: #46BCB1; --late: #EE7E73; --idle: #8EAADB; --soft: #173130; --grid: #1D2B30; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0D1518; --surface: #142024; --ink: #E2EBED; --muted: #94A6AC; --line: #26363C;
+  --accent: #46BCB1; --late: #EE7E73; --idle: #8EAADB; --soft: #173130; --grid: #1D2B30; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 16px/1.65 var(--f-body); padding-inline: 16px; padding-block: 0 4rem; }
+.wrap { max-width: 860px; margin: 0 auto; }
+header { padding-block: 2rem 1.25rem; border-bottom: 1px solid var(--line); display: grid; gap: .5rem; }
+.eyebrow { font: 500 12px var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+h1 { font: 600 clamp(2rem, 5vw, 2.8rem)/1.1 var(--f-display); margin: 0; text-wrap: balance; }
+h2 { font: 600 1.7rem/1.2 var(--f-display); margin: 0; text-wrap: balance; }
+h3 { font: 600 1.15rem/1.3 var(--f-body); margin: 0; }
+p { margin: 0; max-width: 68ch; }
+a { color: var(--accent); }
+.sub { color: var(--muted); }
+.crumbs { display: flex; gap: 8px; flex-wrap: wrap; font: 500 13px var(--f-mono); }
+.crumbs a, .crumbs span { text-decoration: none; padding: 3px 8px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); }
+.crumbs a:hover, .crumbs a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.crumbs span[aria-current] { border-color: var(--accent); color: var(--accent); }
+nav.labs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); display: flex; gap: 8px; flex-wrap: wrap; padding-block: .75rem; border-bottom: 1px solid var(--line); }
+nav.labs a { font: 500 13px var(--f-mono); color: var(--ink); text-decoration: none; padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; }
+nav.labs a:hover, nav.labs a:focus-visible { border-color: var(--accent); color: var(--accent); outline: none; }
+.lesson { padding-block: 2rem 0; display: grid; gap: 1.25rem; }
+.lesson-head { display: grid; gap: .4rem; }
+.lab { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1.25rem; display: grid; gap: 1rem; min-width: 0; scroll-margin-top: 4rem; }
+.lab-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tag { font: 500 12px var(--f-mono); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 1px 6px; }
+.controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem 1.25rem; }
+.ctl { display: grid; gap: 4px; min-width: 0; }
+.ctl label, .lbl { font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+.ctl output { font: 500 13px var(--f-mono); color: var(--ink); }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+input[type=text], input[type=number], input[type=date], select { font: 14px var(--f-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; min-width: 0; }
+input:focus-visible, select:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink); }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button, .seg button { font: 500 12px var(--f-mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.chips button:hover, .seg button[aria-pressed=true] { border-color: var(--accent); color: var(--accent); }
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.formula { background: var(--soft); border-radius: 8px; padding: .75rem 1rem; overflow-x: auto; font-size: 15px; }
+.say { font-size: 15px; }
+.say b { font-weight: 600; }
+.err { color: var(--late); font-size: 13px; }
+.chart { position: relative; height: 260px; min-width: 0; }
+.chart.short { height: 210px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .6rem; }
+.stat { border: 1px solid var(--line); border-radius: 8px; padding: .55rem .75rem; display: grid; gap: 2px; }
+.stat span { font-size: 12px; color: var(--muted); }
+.stat strong { font: 500 1.35rem var(--f-mono); font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 500; color: var(--muted); font-size: 13px; }
+td.num, th.num { text-align: right; font-family: var(--f-mono); }
+tr.total td { font-weight: 600; border-bottom: 2px solid var(--ink); }
+.heat { display: grid; grid-template-columns: minmax(110px, 1.3fr) repeat(3, minmax(64px, 1fr)); gap: 4px; min-width: 360px; }
+.heat .h { font: 500 12px var(--f-mono); color: var(--muted); padding: 4px; align-self: end; }
+.heat .r { font-size: 13px; padding: 6px 4px; align-self: center; }
+.heat .c { border-radius: 6px; padding: 6px; text-align: center; font-variant-numeric: tabular-nums; display: grid; }
+.heat .c strong { font: 500 15px var(--f-mono); }
+.heat .c span { font-size: 11px; color: var(--muted); }
+.legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 120px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--surface), var(--late)); border: 1px solid var(--line); }
+details { border-top: 1px solid var(--line); padding-top: .75rem; }
+summary { cursor: pointer; font-weight: 500; }
+footer { margin-top: 3rem; color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 1rem; }
+code { font: 13px var(--f-mono); background: var(--soft); padding: 1px 5px; border-radius: 4px; }
+/* hub */
+.track { padding-block: 2rem 0; display: grid; gap: 1rem; }
+.lessons { display: grid; gap: .6rem; }
+.lessonrow { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) auto; gap: .25rem 1rem; align-items: start; padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.lessonrow.planned { background: transparent; border-style: dashed; }
+.lessonrow .id { font: 600 1.3rem/1.2 var(--f-display); color: var(--accent); }
+.lessonrow.planned .id { color: var(--muted); }
+.lessonrow .body { display: grid; gap: .3rem; min-width: 0; }
+.lessonrow .stage { font: 500 11px var(--f-mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lessonrow .labs { display: flex; gap: 6px; flex-wrap: wrap; }
+.lessonrow .labs span { font: 12px var(--f-mono); border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--muted); }
+.pill { font: 500 12px var(--f-mono); border-radius: 999px; padding: 2px 10px; white-space: nowrap; border: 1px solid var(--line); color: var(--muted); }
+.pill.done { color: var(--accent); border-color: var(--accent); }
+.pill.now { color: var(--late); border-color: var(--late); }
+.open { font: 500 14px var(--f-body); }
+@media (max-width: 520px) { .lessonrow { grid-template-columns: 2.6rem minmax(0, 1fr); } .lessonrow .pill { grid-column: 2; justify-self: start; } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+
+</style>
+<script>
+window.MathJax = { tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] }, svg: { fontCache: "global" }, options: { enableMenu: false } };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>window.SLOT_DATA = {"departments":{"Cardiology":[20,9,13],"Orthopaedics":[14,8,10],"Paediatrics":[16,9,10],"General Medicine":[12,7,9],"Dermatology":[10,6,7],"ENT":[12,7,8],"Gynaecology":[18,10,12],"Neurology":[24,12,15]},"visitTypes":["new","follow-up","review"],"reportMin":1.3,"reportCap":8,"interpreterMin":4.0,"elderlyAge":65,"elderlyFactor":1.15,"infantAge":3,"infantFactor":1.15,"teleFactor":0.8,"clinicFactor":{"HSR":1.0,"Whitefield":0.95,"Koramangala":0.9,"Jayanagar":1.05,"Indiranagar":0.97},"dayFactor":{"0":0.94,"1":1.0,"2":1.0,"3":1.0,"4":1.0,"5":1.05},"earlyHour":10,"earlyFactor":1.05,"lateHour":16,"lateFactor":0.92,"drift":{"date":"2026-07-01","dept":"Dermatology","extra":3.0},"sigma":0.28,"doctors":[{"name":"Deepak Rao","dept":"General Medicine","speed":1.0,"clinics":["HSR","Koramangala"],"joined":"2025-01-01"},{"name":"Divya Rao","dept":"Dermatology","speed":0.9,"clinics":["HSR","Indiranagar"],"joined":"2025-01-01"},{"name":"Anita Sharma","dept":"Cardiology","speed":1.15,"clinics":["HSR","Jayanagar"],"joined":"2025-01-01"},{"name":"Rahul Menon","dept":"Cardiology","speed":0.9,"clinics":["Whitefield","Koramangala"],"joined":"2025-01-01"},{"name":"Priya Nair","dept":"Paediatrics","speed":1.1,"clinics":["HSR","Whitefield"],"joined":"2025-01-01"},{"name":"Suresh Kumar","dept":"Orthopaedics","speed":0.85,"clinics":["Jayanagar","Koramangala"],"joined":"2025-01-01"},{"name":"Kavita Iyer","dept":"Gynaecology","speed":1.05,"clinics":["Indiranagar","HSR"],"joined":"2025-01-01"},{"name":"Arjun Reddy","dept":"Orthopaedics","speed":1.1,"clinics":["Whitefield","HSR"],"joined":"2025-01-01"},{"name":"Meera Pillai","dept":"Neurology","speed":1.0,"clinics":["Koramangala","Jayanagar"],"joined":"2025-01-01"},{"name":"Vikram Shetty","dept":"ENT","speed":0.95,"clinics":["Indiranagar","Whitefield"],"joined":"2025-01-01"},{"name":"Neha Gupta","dept":"General Medicine","speed":1.2,"clinics":["Jayanagar","Whitefield"],"joined":"2025-01-01"},{"name":"Sanjay Patil","dept":"Paediatrics","speed":0.9,"clinics":["Koramangala","Indiranagar"],"joined":"2025-01-01"},{"name":"Lakshmi Krishnan","dept":"Gynaecology","speed":0.95,"clinics":["Jayanagar","Whitefield"],"joined":"2025-01-01"},{"name":"Imran Khan","dept":"General Medicine","speed":0.85,"clinics":["Indiranagar","HSR"],"joined":"2025-01-01"},{"name":"Farah Siddiqui","dept":"Neurology","speed":1.15,"clinics":["HSR","Whitefield"],"joined":"2025-01-01"},{"name":"Rohan Desai","dept":"ENT","speed":1.05,"clinics":["Koramangala","HSR"],"joined":"2025-01-01"},{"name":"Asha Hegde","dept":"Dermatology","speed":1.1,"clinics":["Jayanagar","Koramangala"],"joined":"2025-01-01"},{"name":"Karthik Subramanian","dept":"Cardiology","speed":1.0,"clinics":["Indiranagar","Jayanagar"],"joined":"2025-01-01"},{"name":"Pooja Bhat","dept":"Paediatrics","speed":1.0,"clinics":["Jayanagar","Indiranagar"],"joined":"2025-01-01"},{"name":"Manoj Joshi","dept":"Orthopaedics","speed":1.0,"clinics":["HSR","Indiranagar"],"joined":"2025-01-01"},{"name":"Nikhil Verma","dept":"Paediatrics","speed":1.35,"clinics":["HSR","Whitefield"],"joined":"2026-07-01"}],"qCandidates":[0.67,0.75,0.8],"test":{"from":"2026-07-01","visits":11144,"meanExpected":13.97,"hist":[[4.25,4],[4.75,15],[5.25,46],[5.75,144],[6.25,214],[6.75,217],[7.25,332],[7.75,351],[8.25,460],[8.75,451],[9.25,496],[9.75,465],[10.25,432],[10.75,446],[11.25,463],[11.75,448],[12.25,417],[12.75,420],[13.25,418],[13.75,408],[14.25,268],[14.75,349],[15.25,373],[15.75,260],[16.25,268],[16.75,261],[17.25,204],[17.75,185],[18.25,239],[18.75,173],[19.25,190],[19.75,146],[20.25,143],[20.75,129],[21.25,83],[21.75,114],[22.25,83],[22.75,59],[23.25,89],[23.75,83],[24.25,62],[24.75,41],[25.25,65],[25.75,48],[26.25,42],[26.75,49],[27.25,52],[27.75,46],[28.25,18],[28.75,52],[29.25,40],[29.75,14],[30.25,37],[30.75,52],[31.25,7],[31.75,28],[32.25,46],[32.75,3],[33.25,21],[33.75,29],[34.75,5],[35.25,18],[35.75,1],[36.25,3],[36.75,4],[37.25,2],[38.25,3],[38.75,3],[39.25,1],[40.25,2],[40.75,1],[42.25,3]],"cells":{"Cardiology|follow-up":[[5.25,2],[5.75,5],[6.25,12],[6.75,17],[7.25,54],[7.75,56],[8.25,77],[8.75,94],[9.25,66],[9.75,77],[10.25,51],[10.75,55],[11.25,64],[11.75,31],[12.25,37],[12.75,16],[13.25,12],[13.75,10],[14.25,14],[14.75,7],[15.25,8],[15.75,5],[16.25,3],[16.75,2],[17.25,1],[18.75,3],[19.75,1]],"Cardiology|new":[[14.75,1],[15.25,2],[15.75,5],[16.25,9],[16.75,5],[17.25,7],[17.75,11],[18.25,24],[18.75,6],[19.25,34],[19.75,13],[20.25,27],[20.75,13],[21.25,24],[21.75,22],[22.25,15],[22.75,11],[23.25,27],[23.75,33],[24.25,36],[24.75,16],[25.25,19],[25.75,30],[26.25,12],[26.75,11],[27.25,35],[27.75,13],[28.25,5],[28.75,32],[29.25,8],[29.75,8],[30.25,20],[30.75,5],[31.25,5],[31.75,13],[32.25,5],[32.75,1],[33.25,5],[33.75,7],[34.75,2],[35.25,4],[38.75,1]],"Cardiology|review":[[9.25,1],[9.75,3],[10.25,4],[10.75,4],[11.25,2],[11.75,11],[12.25,7],[12.75,11],[13.25,12],[13.75,14],[14.25,16],[14.75,6],[15.25,29],[15.75,16],[16.25,22],[16.75,18],[17.25,20],[17.75,17],[18.25,15],[18.75,24],[19.25,17],[19.75,7],[20.25,14],[20.75,12],[21.25,3],[21.75,6],[22.25,4],[22.75,1],[23.25,4],[23.75,5],[24.25,3],[25.25,5],[26.25,2],[27.25,3],[27.75,1]],"Dermatology|follow-up":[[6.75,2],[7.25,12],[7.75,35],[8.25,82],[8.75,69],[9.25,67],[9.75,71],[10.25,34],[10.75,39],[11.25,21],[11.75,23],[12.25,10],[12.75,18],[13.25,3],[13.75,4],[14.25,2],[14.75,2],[15.25,1],[15.75,1],[16.25,1],[18.25,1]],"Dermatology|new":[[10.75,3],[11.25,7],[11.75,15],[12.25,36],[12.75,41],[13.25,33],[13.75,26],[14.25,35],[14.75,39],[15.25,34],[15.75,22],[16.25,33],[16.75,27],[17.25,6],[17.75,4],[18.25,8],[18.75,8],[19.25,6],[19.75,8],[20.75,2],[21.25,1],[21.75,6],[22.25,1],[22.75,1],[23.75,2]],"Dermatology|review":[[8.75,2],[9.25,4],[9.75,3],[10.25,9],[10.75,10],[11.25,14],[11.75,20],[12.25,9],[12.75,22],[13.25,10],[13.75,15],[14.25,15],[14.75,12],[15.25,6],[15.75,15],[16.25,12],[16.75,2],[17.25,6],[17.75,6],[18.25,4],[18.75,6],[19.25,2],[20.75,1],[21.25,1],[24.75,1]],"ENT|follow-up":[[4.25,2],[4.75,3],[5.25,5],[5.75,36],[6.25,78],[6.75,82],[7.25,74],[7.75,58],[8.25,30],[8.75,29],[9.25,21],[9.75,14],[10.25,20],[10.75,10],[11.25,7],[11.75,4],[12.25,4],[12.75,1],[13.25,3],[14.75,2],[15.75,1]],"ENT|new":[[9.25,1],[9.75,5],[10.25,8],[10.75,17],[11.25,43],[11.75,44],[12.25,24],[12.75,47],[13.25,44],[13.75,45],[14.25,14],[14.75,11],[15.25,25],[15.75,5],[16.25,9],[16.75,14],[17.25,3],[17.75,1],[18.25,5],[19.25,3]],"ENT|review":[[7.25,1],[7.75,5],[8.25,12],[8.75,12],[9.25,12],[9.75,12],[10.25,18],[10.75,10],[11.25,18],[11.75,18],[12.25,23],[12.75,11],[13.25,15],[13.75,10],[14.25,5],[14.75,9],[15.25,7],[15.75,2],[16.25,2],[16.75,2],[17.25,1],[17.75,1]],"General Medicine|follow-up":[[4.25,2],[4.75,9],[5.25,32],[5.75,79],[6.25,84],[6.75,61],[7.25,76],[7.75,76],[8.25,49],[8.75,55],[9.25,36],[9.75,24],[10.25,23],[10.75,15],[11.25,15],[11.75,4],[12.25,7],[12.75,7],[13.25,3],[13.75,3],[14.75,1],[15.25,3],[18.25,1]],"General Medicine|new":[[8.75,2],[9.25,7],[9.75,22],[10.25,35],[10.75,26],[11.25,39],[11.75,32],[12.25,27],[12.75,42],[13.25,38],[13.75,38],[14.25,14],[14.75,22],[15.25,38],[15.75,19],[16.25,7],[16.75,29],[17.25,14],[17.75,1],[18.25,25],[18.75,2],[19.25,8],[19.75,7],[20.25,2],[20.75,1],[21.25,1],[22.25,1],[22.75,1],[23.25,1],[23.75,1],[26.75,2]],"General Medicine|review":[[7.25,1],[7.75,3],[8.25,10],[8.75,16],[9.25,11],[9.75,18],[10.25,27],[10.75,22],[11.25,12],[11.75,24],[12.25,25],[12.75,19],[13.25,17],[13.75,17],[14.25,8],[14.75,22],[15.25,12],[15.75,6],[16.25,13],[16.75,5],[17.25,3],[17.75,6],[18.25,3],[18.75,5],[19.25,3],[19.75,1],[20.75,1],[21.75,1],[22.75,1]],"Gynaecology|follow-up":[[6.75,4],[7.25,5],[7.75,12],[8.25,22],[8.75,17],[9.25,86],[9.75,58],[10.25,59],[10.75,74],[11.25,32],[11.75,46],[12.25,22],[12.75,24],[13.25,15],[13.75,14],[14.25,3],[14.75,10],[15.25,7],[15.75,4],[16.25,2],[16.75,2],[18.75,2]],"Gynaecology|new":[[14.25,1],[14.75,4],[15.25,6],[15.75,4],[16.25,26],[16.75,11],[17.25,34],[17.75,20],[18.25,17],[18.75,51],[19.25,28],[19.75,36],[20.25,30],[20.75,30],[21.25,13],[21.75,16],[22.25,14],[22.75,18],[23.25,6],[23.75,3],[24.25,7],[24.75,2],[25.25,2],[25.75,1],[26.75,2],[27.25,2],[27.75,1],[31.25,1],[32.75,1]],"Gynaecology|review":[[8.75,1],[9.75,1],[10.25,1],[10.75,1],[11.25,4],[11.75,1],[12.25,10],[12.75,8],[13.25,27],[13.75,7],[14.25,19],[14.75,13],[15.25,10],[15.75,24],[16.25,17],[16.75,17],[17.25,16],[17.75,10],[18.25,12],[18.75,3],[19.25,4],[19.75,5],[20.25,6],[20.75,5],[21.25,3],[21.75,1],[22.25,2],[24.25,1],[25.25,1],[26.75,1]],"Neurology|follow-up":[[8.75,1],[9.25,9],[9.75,15],[10.25,16],[10.75,21],[11.25,30],[11.75,40],[12.25,24],[12.75,58],[13.25,47],[13.75,68],[14.25,41],[14.75,19],[15.25,48],[15.75,7],[16.25,22],[16.75,11],[17.25,1],[17.75,11],[18.25,9],[18.75,4],[19.25,5],[19.75,2],[20.25,2],[20.75,1]],"Neurology|new":[[19.75,1],[20.75,3],[21.25,1],[21.75,3],[22.25,2],[22.75,5],[23.25,9],[23.75,14],[24.25,8],[24.75,4],[25.25,22],[25.75,5],[26.25,16],[26.75,22],[27.25,6],[27.75,28],[28.25,8],[28.75,13],[29.25,28],[29.75,6],[30.25,16],[30.75,42],[31.25,1],[31.75,14],[32.25,39],[32.75,1],[33.25,14],[33.75,22],[34.75,3],[35.25,14],[35.75,1],[36.25,3],[36.75,4],[37.25,2],[38.25,3],[38.75,2],[39.25,1],[40.25,2],[40.75,1],[42.25,3]],"Neurology|review":[[11.75,2],[13.25,2],[13.75,3],[14.25,1],[14.75,8],[15.25,4],[15.75,11],[16.25,2],[16.75,4],[17.25,15],[17.75,9],[18.25,22],[18.75,12],[19.25,16],[19.75,18],[20.25,10],[20.75,11],[21.25,11],[21.75,15],[22.25,6],[22.75,10],[23.25,6],[23.75,2],[24.25,3],[24.75,5],[25.25,1],[25.75,2],[26.25,4],[26.75,1],[27.75,3],[28.25,1],[28.75,1],[29.25,2]],"Orthopaedics|follow-up":[[4.75,3],[5.25,7],[5.75,24],[6.25,40],[6.75,37],[7.25,74],[7.75,52],[8.25,124],[8.75,68],[9.25,63],[9.75,36],[10.25,39],[10.75,26],[11.25,19],[11.75,14],[12.25,10],[12.75,5],[13.25,5],[13.75,2],[14.25,5],[14.75,6],[15.25,2],[15.75,1],[16.25,1]],"Orthopaedics|new":[[9.75,4],[10.25,5],[10.75,19],[11.25,15],[11.75,29],[12.25,18],[12.75,22],[13.25,27],[13.75,33],[14.25,31],[14.75,50],[15.25,43],[15.75,41],[16.25,29],[16.75,42],[17.25,32],[17.75,22],[18.25,20],[18.75,13],[19.25,18],[19.75,8],[20.25,7],[20.75,3],[21.25,5],[21.75,4],[22.75,1],[23.75,2],[25.75,1]],"Orthopaedics|review":[[7.25,1],[7.75,4],[8.25,3],[8.75,9],[9.25,9],[9.75,12],[10.25,11],[10.75,15],[11.25,21],[11.75,14],[12.25,24],[12.75,15],[13.25,26],[13.75,20],[14.25,7],[14.75,21],[15.25,21],[15.75,11],[16.25,4],[16.75,13],[17.25,10],[17.75,4],[18.25,1],[18.75,1],[19.25,3],[19.75,4],[20.25,2],[20.75,3],[21.25,1],[22.25,1],[22.75,1]],"Paediatrics|follow-up":[[6.75,14],[7.25,34],[7.75,50],[8.25,50],[8.75,76],[9.25,100],[9.75,81],[10.25,58],[10.75,68],[11.25,80],[11.75,58],[12.25,64],[12.75,27],[13.25,46],[13.75,40],[14.25,7],[14.75,17],[15.25,9],[15.75,9],[16.25,4],[16.75,3],[17.25,3],[17.75,1],[18.25,3],[19.25,2],[19.75,1],[20.25,2],[21.25,1],[22.75,1]],"Paediatrics|new":[[11.25,2],[11.75,2],[12.25,5],[12.75,13],[13.25,9],[13.75,20],[14.25,10],[14.75,36],[15.25,31],[15.75,27],[16.25,32],[16.75,36],[17.25,20],[17.75,44],[18.25,55],[18.75,24],[19.25,34],[19.75,27],[20.25,39],[20.75,35],[21.25,12],[21.75,34],[22.25,35],[22.75,5],[23.25,34],[23.75,19],[24.25,2],[24.75,12],[25.25,14],[25.75,9],[26.25,6],[26.75,10],[27.25,6],[28.25,3],[28.75,6],[29.25,2],[30.25,1],[30.75,5],[31.75,1],[32.25,2],[33.25,2]],"Paediatrics|review":[[8.25,1],[9.25,3],[9.75,9],[10.25,14],[10.75,11],[11.25,18],[11.75,16],[12.25,31],[12.75,13],[13.25,24],[13.75,19],[14.25,20],[14.75,31],[15.25,27],[15.75,24],[16.25,18],[16.75,18],[17.25,12],[17.75,17],[18.25,14],[18.75,9],[19.25,7],[19.75,7],[20.25,2],[20.75,8],[21.25,6],[21.75,6],[22.25,2],[22.75,3],[23.25,2],[23.75,2],[24.25,2],[24.75,1],[25.25,1],[26.25,2],[28.25,1]]}},"eda":{"n":43822,"errors":2389,"fences":{"raw":[-5.2,31.33],"log":[2.84,52.69],"domain":[1.0,120.0]},"rules":{"raw":{"flagged":2204,"caught":1018,"genuine":1186,"missed":1371,"missedWhitefield":1157},"log":{"flagged":782,"caught":703,"genuine":79,"missed":1686,"missedWhitefield":1686},"domain":{"flagged":669,"caught":669,"genuine":0,"missed":1720,"missedWhitefield":1720}},"hist":[[0.02,0.023,0,7,0],[0.0303,0.0348,0,4,0],[0.0458,0.0526,0,4,0],[0.0604,0.0693,0,6,0],[0.0796,0.0914,0,3,0],[0.0914,0.105,0,5,0],[0.105,0.1205,0,4,0],[0.1205,0.1384,0,6,0],[0.1384,0.1589,0,3,0],[0.1589,0.1824,0,5,0],[0.1824,0.2094,0,6,0],[0.2094,0.2405,0,7,0],[0.2405,0.2761,0,7,0],[0.2761,0.317,0,12,0],[0.317,0.3639,0,15,0],[0.3639,0.4179,0,13,0],[0.4179,0.4798,0,15,0],[0.4798,0.5508,0,22,0],[0.5508,0.6325,0,22,0],[0.6325,0.7262,0,22,0],[0.7262,0.8337,0,26,0],[1.4489,1.6635,1,0,0],[1.6635,1.91,0,0,1],[1.91,2.193,3,0,0],[2.193,2.5179,7,0,0],[2.5179,2.8909,32,0,0],[2.8909,3.3192,79,0,0],[3.3192,3.8109,234,0,0],[3.8109,4.3755,429,0,0],[4.3755,5.0238,849,0,0],[5.0238,5.7681,1355,0,0],[5.7681,6.6226,2108,0,0],[6.6226,7.6038,2797,0,2],[7.6038,8.7303,3534,0,4],[8.7303,10.0237,4153,0,7],[10.0237,11.5088,4406,0,24],[11.5088,13.2139,4378,0,48],[13.2139,15.1716,4147,0,65],[15.1716,17.4193,3606,0,87],[17.4193,20.0,3016,0,147],[20.0,22.9631,2233,0,195],[22.9631,26.3651,1578,0,229],[26.3651,30.2712,1081,0,282],[30.2712,34.756,682,0,252],[34.756,39.9052,397,0,181],[39.9052,45.8174,211,0,108],[45.8174,52.6054,76,0,54],[52.6054,60.399,34,0,25],[60.399,69.3474,4,0,7],[69.3474,79.6214,2,0,2],[91.4176,104.9615,1,0,0],[104.9615,120.5119,0,2,0],[120.5119,138.3662,0,48,3],[138.3662,158.8656,0,56,2],[158.8656,182.4022,0,49,3],[182.4022,209.4257,0,59,6],[209.4257,240.4529,0,82,4],[240.4529,276.0769,0,80,5],[276.0769,316.9786,0,50,6]],"months":["2026-01","2026-02","2026-03","2026-04","2026-05","2026-06","2026-07","2026-08"],"clinics":["HSR","Indiranagar","Jayanagar","Koramangala","Whitefield"],"medianAll":[[12.1,10.57,12.8,10.2,12.17],[12.4,10.81,13.27,10.43,12.18],[11.6,10.82,13.23,10.4,26.73],[12.08,10.4,12.82,10.53,27.98],[12.42,10.48,13.12,9.67,11.82],[12.05,10.75,13.02,10.07,12.37],[12.98,10.9,13.78,10.62,13.1],[12.9,10.88,14.49,10.65,12.87]],"medianClean":[[12.1,10.57,12.8,10.2,12.17],[12.4,10.81,13.27,10.43,12.18],[11.6,10.82,13.23,10.4,NaN],[12.08,10.4,12.82,10.53,NaN],[12.42,10.48,13.12,9.67,11.82],[12.05,10.75,13.02,10.07,12.37],[12.98,10.9,13.78,10.62,13.1],[12.9,10.88,14.49,10.65,12.87]]}};</script>
+<script>
+/* Shared helpers for every lesson page: maths, live TeX, charts, lab wiring. */
+const D = window.SLOT_DATA;
+const $ = id => document.getElementById(id);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const f = (x, d = 2) => Number(x).toFixed(d);
+const pct = (x, d = 0) => (x * 100).toFixed(d) + "%";
+const R = String.raw;
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+/* ---------- maths ---------- */
+function erf(x) { const s = x < 0 ? -1 : 1; x = Math.abs(x); const t = 1 / (1 + 0.3275911 * x);
+  return s * (1 - (((((1.061405429 * t - 1.453152027) * t) + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x)); }
+const Phi = x => 0.5 * (1 + erf(x / Math.SQRT2));
+const phi = x => Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
+function invPhi(p) {
+  const a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239],
+        b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771972, -13.28068155288572],
+        c = [-0.007784894002430293, -0.3223964580411365, -2.400758277161838, -2.549732539343734, 4.374664141464968, 2.938163982698783],
+        d = [0.007784695709041462, 0.3224671290700398, 2.445134137142996, 3.754408661907416], pl = 0.02425;
+  let q, r;
+  if (p < pl) { q = Math.sqrt(-2 * Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  if (p > 1 - pl) { q = Math.sqrt(-2 * Math.log(1 - p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1); }
+  q = p - 0.5; r = q * q;
+  return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5]) * q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+/* a visit with expected m minutes and log-normal noise sigma (mean 1) */
+const visitPdf = (x, m, s) => phi((Math.log(x / m) + s * s / 2) / s) / (x * s);
+const quantileOf = (m, q, s) => m * Math.exp(-s * s / 2 + invPhi(q) * s);
+const roundUp = x => Math.max(5, Math.ceil(x / 5 - 1e-9) * 5);
+function score(m, slot, s) {           /* closed forms for one visit type */
+  const d = (Math.log(slot / m) + s * s / 2) / s, cov = Phi(d);
+  const idle = slot * cov - m * Phi(d - s);
+  return { late: 1 - cov, idle, over: m - slot + idle, absErr: m - slot + 2 * idle };
+}
+function population(hist, slotOf, s) {
+  let n = 0, late = 0, idle = 0, over = 0, slot = 0, abs = 0;
+  for (const [m, k] of hist) { const sl = slotOf(m), r = score(m, sl, s);
+    n += k; late += k * r.late; idle += k * r.idle; over += k * r.over; slot += k * sl; abs += k * r.absErr; }
+  return { late: late / n, idle: idle / n, over: over / n, slot: slot / n, mae: abs / n, n };
+}
+function range(a, b, step) { const out = []; for (let x = a; x <= b + 1e-9; x += step) out.push(+x.toFixed(6)); return out; }
+
+/* ---------- live TeX ---------- */
+const texQueue = new Set(); let texFrame = 0, mjChain = Promise.resolve();
+function tex(el, s, display = true) {
+  el.textContent = display ? "\\[" + s + "\\]" : "\\(" + s + "\\)";
+  texQueue.add(el);
+  if (!texFrame) texFrame = requestAnimationFrame(flushTex);
+}
+function flushTex() {
+  texFrame = 0;
+  const MJ = window.MathJax;
+  if (!MJ || !MJ.typesetPromise) return;
+  const els = [...texQueue]; texQueue.clear();
+  mjChain = mjChain.then(() => { try { MJ.typesetClear(els); } catch (e) {} return MJ.typesetPromise(els); }).catch(() => {});
+}
+window.addEventListener("load", () => { const t = setInterval(() => { if (window.MathJax && window.MathJax.typesetPromise) { clearInterval(t); flushTex(); } }, 300); });
+
+/* ---------- charts ---------- */
+function hexA(hex, a) { const h = hex.replace("#", ""); const n = parseInt(h.length === 3 ? h.split("").map(c => c + c).join("") : h, 16);
+  return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; }
+function makeChart(id, xTitle, yTitle, extra = {}) {
+  return new Chart($(id), { type: "scatter", data: { datasets: [] }, options: {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { labels: { boxWidth: 12, font: { family: "IBM Plex Sans", size: 12 }, filter: i => !i.text.startsWith("_") } },
+               tooltip: { enabled: extra.tooltip !== false, filter: i => !i.dataset.label.startsWith("_") } },
+    scales: { x: { type: "linear", title: { display: !!xTitle, text: xTitle }, min: extra.xmin, max: extra.xmax },
+              y: { title: { display: !!yTitle, text: yTitle }, min: extra.ymin, max: extra.ymax, display: extra.yDisplay !== false } } } });
+}
+function paint(c) {
+  const m = css("--muted"), g = css("--grid");
+  for (const ax of Object.values(c.options.scales)) { ax.ticks = { ...(ax.ticks || {}), color: m }; ax.grid = { color: g }; if (ax.title) ax.title.color = m; }
+  c.options.plugins.legend.labels.color = m;
+  c.update("none");
+}
+const line = (label, data, color, o = {}) => ({ label, data, showLine: true, pointRadius: 0, borderColor: color, backgroundColor: color, borderWidth: 2, ...o });
+const vline = (label, x, y0, y1, color, dash = []) => line(label, [{ x, y: y0 }, { x, y: y1 }], color, { borderDash: dash, borderWidth: 1.5 });
+const area = (label, data, color, a = 0.22) => ({ label, data, showLine: true, pointRadius: 0, borderWidth: 0, fill: "origin", backgroundColor: hexA(color, a) });
+
+/* ---------- lab wiring ---------- */
+function bindOut(id, fmt) { const el = $(id), out = $(id + "Out"); const set = () => out.textContent = fmt(+el.value); el.addEventListener("input", set); set(); }
+const LAB_UPDATES = [];
+function registerLab(fn, inputIds = []) { LAB_UPDATES.push(fn); inputIds.forEach(id => $(id).addEventListener("input", fn)); }
+function startLabs() {
+  const all = () => LAB_UPDATES.forEach(fn => fn());
+  all();
+  const mq = window.matchMedia("(prefers-color-scheme: dark)");
+  if (mq.addEventListener) mq.addEventListener("change", all);
+  new MutationObserver(all).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+}
+
+</script>
+<div class="wrap">
+<header>
+  <div class="eyebrow">Lesson A3 · Stage 2 · Explore</div>
+  <h1>A3 · Exploring the messy export (EDA)</h1>
+  <p class="sub">Robust statistics, outlier rules scored against the truth, MCAR vs MAR vs MNAR, and a process change no rule can see. Drag any slider: the formula, the numbers and the chart change together. Written notes: <code>notes/A03-eda.md</code>.</p>
+  <div class="crumbs"><a href="https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf">All lessons</a><a href="https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc">A1 · Framing</a><a href="https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA">A2 · The simulated hospital</a><span aria-current="page">A3 · Exploring the messy export (EDA)</span></div>
+</header>
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-robust">3.1 Robust statistics</a>
+  <a href="#lab-rules">3.2 Outlier rules vs the truth</a>
+  <a href="#lab-missing">3.3 MCAR, MAR, MNAR</a>
+  <a href="#lab-step">3.4 The Whitefield step</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>Look before you clean</h2>
+    <p>The export hides eight kinds of problem. EDA finds them without changing anything: robust statistics that bad rows can't drag around, outlier rules that know the difference between unusual and impossible, a careful look at who is missing, and time plots that reveal process changes no outlier rule can see.</p>
+  </div>
+
+  <div class="lab" id="lab-robust">
+    <div class="lab-head"><span class="tag">Lab 3.1</span><h3>One bad row vs the mean, the median and the IQR fences</h3></div>
+    <p class="say">Add one visit the doctor forgot to close and watch which statistics move. The mean is dragged along; the median barely notices. IQR fences on the raw scale also flag genuine long visits, because consult times are right-skewed; on the log scale they don't.</p>
+    <div class="controls">
+      <div class="ctl" style="grid-column: 1 / -1">
+        <label for="rvVisits">Visit lengths (minutes, separated by commas)</label>
+        <input type="text" id="rvVisits" value="8, 9, 10, 11, 12, 13, 14, 16, 20, 27">
+        <span class="err" id="rvErr" hidden></span>
+      </div>
+      <div class="ctl"><label for="rvBad">Forgotten-to-close visit <output id="rvBadOut"></output></label><input type="range" id="rvBad" min="0" max="300" step="5" value="240"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Mean</span><strong id="rvMean"></strong></div>
+      <div class="stat"><span>Median</span><strong id="rvMed"></strong></div>
+      <div class="stat"><span>Raw IQR fences</span><strong id="rvRawF"></strong></div>
+      <div class="stat"><span>Log IQR fences</span><strong id="rvLogF"></strong></div>
+    </div>
+    <div class="formula" id="rvFormula"></div>
+    <p class="say" id="rvSay"></p>
+    <div class="chart short"><canvas id="rvChart" aria-label="Visits on a log scale with IQR fences"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-rules">
+    <div class="lab-head"><span class="tag">Lab 3.2</span><h3>Three outlier rules, scored against the hidden truth</h3></div>
+    <p class="say">Because we simulated the hospital, we know which of the export's consult times are wrong. Pick a rule and see what it catches, what genuine visits it throws away, and what it misses entirely.</p>
+    <div class="seg" role="group" aria-label="Outlier rule">
+      <button type="button" data-rule="raw" aria-pressed="false">Raw IQR</button>
+      <button type="button" data-rule="log" aria-pressed="false">Log IQR</button>
+      <button type="button" data-rule="domain" aria-pressed="true">Domain rule (1–120 min)</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Rows flagged</span><strong id="ruFlag"></strong></div>
+      <div class="stat"><span>Real errors caught</span><strong id="ruCaught"></strong></div>
+      <div class="stat"><span>Genuine visits thrown away</span><strong id="ruGen"></strong></div>
+      <div class="stat"><span>Errors missed (Whitefield)</span><strong id="ruMiss"></strong></div>
+    </div>
+    <p class="say" id="ruSay"></p>
+    <div class="chart"><canvas id="ruChart" aria-label="Consult minutes in the raw export, by kind, with the chosen rule's fences"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-missing">
+    <div class="lab-head"><span class="tag">Lab 3.3</span><h3>Dropping missing rows: when does it bias the data?</h3></div>
+    <p class="say">5,000 simulated visits from two departments: a quick one (expected 10 min) and a slow one (expected 20 min). Remove some of them under three different mechanisms, then compare the P80 of what's left with the truth, overall and inside each department.</p>
+    <div class="controls">
+      <div class="ctl"><label for="msRate">Share of rows missing <output id="msRateOut"></output></label><input type="range" id="msRate" min="0" max="0.6" step="0.05" value="0.3"></div>
+      <div class="ctl"><span class="lbl">Why rows go missing</span>
+        <div class="seg" role="group" aria-label="Missing mechanism">
+          <button type="button" data-mech="mcar" aria-pressed="false">MCAR: pure chance</button>
+          <button type="button" data-mech="mar" aria-pressed="false">MAR: mostly the slow department</button>
+          <button type="button" data-mech="mnar" aria-pressed="true">MNAR: mostly the longest visits</button>
+        </div>
+      </div>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>P80 of consult minutes</th><th class="num">All visits (truth)</th><th class="num">After dropping</th><th class="num">Error</th></tr></thead>
+      <tbody id="msTable"></tbody>
+    </table></div>
+    <p class="say" id="msSay"></p>
+    <div class="chart short"><canvas id="msChart" aria-label="Distribution of visit lengths before and after dropping"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-step">
+    <div class="lab-head"><span class="tag">Lab 3.4</span><h3>A process change looks like valid data</h3></div>
+    <p class="say">Monthly median consult minutes per clinic, straight from the export. Whitefield doubles in March–April. No outlier rule catches it (Lab 3.2): almost every row looks plausible. Only a time plot, and then the timestamp check <code>consult_start == check_in</code>, gives it away.</p>
+    <label class="check"><input type="checkbox" id="stClean"> Remove the 1,753 rows where <code>consult_start</code> equals <code>check_in</code></label>
+    <p class="say" id="stSay"></p>
+    <div class="chart"><canvas id="stChart" aria-label="Monthly median consult minutes per clinic"></canvas></div>
+  </div>
+</section>
+
+<script>
+const E = D.eda;
+const quantile = (sorted, p) => { const i = (sorted.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo); };
+const fences = v => { const s = [...v].sort((a, b) => a - b), q1 = quantile(s, 0.25), q3 = quantile(s, 0.75), i = q3 - q1; return [q1 - 1.5 * i, q3 + 1.5 * i, q1, q3]; };
+
+/* Lab 3.1: robust statistics */
+const rvChart = makeChart("rvChart", "minutes (log scale)", "", { yDisplay: false, ymin: -1, ymax: 1 });
+rvChart.options.scales.x.type = "logarithmic";
+bindOut("rvBad", v => v ? v + " min" : "none");
+registerLab(function updRobust() {
+  const raw = $("rvVisits").value.split(/[,\s]+/).filter(Boolean).map(Number);
+  const base = raw.filter(x => isFinite(x) && x > 0), err = $("rvErr");
+  if (base.length < 4 || base.length !== raw.length) { err.hidden = false; err.textContent = "Enter at least four positive numbers, separated by commas."; return; }
+  err.hidden = true;
+  const bad = +$("rvBad").value, v = bad ? [...base, bad] : base, s = [...v].sort((a, b) => a - b);
+  const mean = v.reduce((a, b) => a + b) / v.length, med = quantile(s, 0.5);
+  const mean0 = base.reduce((a, b) => a + b) / base.length, med0 = quantile([...base].sort((a, b) => a - b), 0.5);
+  const [rlo, rhi, q1, q3] = fences(v), [llo, lhi, l1, l3] = fences(v.map(Math.log));
+  $("rvMean").textContent = f(mean, 1); $("rvMed").textContent = f(med, 1);
+  $("rvRawF").textContent = `${f(rlo, 1)} – ${f(rhi, 1)}`; $("rvLogF").textContent = `${f(Math.exp(llo), 1)} – ${f(Math.exp(lhi), 1)}`;
+  tex($("rvFormula"), R`\text{raw: } [Q_1-1.5\,\text{IQR},\;Q_3+1.5\,\text{IQR}] = [${f(q1, 2)}-1.5\cdot${f(q3 - q1, 2)},\;${f(q3, 2)}+1.5\cdot${f(q3 - q1, 2)}] = [${f(rlo, 1)},\;${f(rhi, 1)}]` +
+    R`\qquad \text{log: } [e^{${f(llo, 2)}},\;e^{${f(lhi, 2)}}] = [${f(Math.exp(llo), 1)},\;${f(Math.exp(lhi), 1)}]`);
+  const rawFlag = v.filter(x => x < rlo || x > rhi), logFlag = v.filter(x => Math.log(x) < llo || Math.log(x) > lhi);
+  $("rvSay").innerHTML = (bad ? `One bad row moved the mean from ${f(mean0, 1)} to <b>${f(mean, 1)}</b> (${mean0 ? "+" + pct(mean / mean0 - 1) : ""}); the median moved from ${f(med0, 1)} to <b>${f(med, 1)}</b>. ` : "No bad row: mean and median describe the same visits. ") +
+    `Raw fences flag <b>${rawFlag.length ? rawFlag.join(", ") : "nothing"}</b>; log fences flag <b>${logFlag.length ? logFlag.join(", ") : "nothing"}</b>.`;
+  const A = css("--accent"), L = css("--late"), I = css("--idle"), M = css("--muted");
+  rvChart.data.datasets = [
+    { label: "Visits", data: base.map(x => ({ x, y: 0 })), pointRadius: 6, backgroundColor: A, borderColor: A },
+    ...(bad ? [{ label: "Forgotten to close", data: [{ x: bad, y: 0 }], pointRadius: 8, pointStyle: "rectRot", backgroundColor: L, borderColor: L }] : []),
+    vline("Raw IQR fences", Math.max(rlo, 0.5), -0.8, 0.8, M, [5, 4]), vline("_raw hi", rhi, -0.8, 0.8, M, [5, 4]),
+    vline("Log IQR fences", Math.exp(llo), -0.8, 0.8, I), vline("_log hi", Math.exp(lhi), -0.8, 0.8, I),
+  ];
+  rvChart.options.scales.x.min = 1; rvChart.options.scales.x.max = Math.max(400, Math.max(...v) * 1.3);
+  paint(rvChart);
+}, ["rvVisits", "rvBad"]);
+
+/* Lab 3.2: outlier rules vs the truth */
+const ruChart = makeChart("ruChart", "consult minutes in the export (log scale)", "rows per bin (log scale)", {});
+ruChart.options.scales.x.type = "logarithmic"; ruChart.options.scales.y.type = "logarithmic";
+ruChart.options.scales.x.min = 0.02; ruChart.options.scales.x.max = 330; ruChart.options.scales.y.min = 0.8;
+let rule = "domain";
+document.querySelectorAll("[data-rule]").forEach(b => b.addEventListener("click", () => {
+  rule = b.dataset.rule; document.querySelectorAll("[data-rule]").forEach(x => x.setAttribute("aria-pressed", x === b)); updRules();
+}));
+const NAMES = { raw: "The raw-scale IQR rule", log: "The log-scale IQR rule", domain: "The domain rule" };
+function updRules() {
+  const r = E.rules[rule], [lo, hi] = E.fences[rule];
+  $("ruFlag").textContent = r.flagged.toLocaleString(); $("ruCaught").textContent = r.caught.toLocaleString();
+  $("ruGen").textContent = r.genuine.toLocaleString(); $("ruMiss").textContent = `${r.missed.toLocaleString()} (${r.missedWhitefield.toLocaleString()})`;
+  $("ruSay").innerHTML = `${NAMES[rule]} keeps ${lo > 0 ? f(lo, 1) : "everything above 0"} to ${f(hi, 1)} minutes. It catches <b>${r.caught}</b> of the ${E.errors.toLocaleString()} wrong rows ` +
+    `and throws away <b>${r.genuine.toLocaleString()}</b> genuine visits. It misses <b>${r.missedWhitefield.toLocaleString()}</b> Whitefield glitch rows, ` +
+    (rule === "raw" ? "though it catches some only because the glitch made them long." : "because each one looks like a perfectly plausible 25-minute visit.");
+  const mid = b => Math.sqrt(b[0] * b[1]), G = css("--accent"), L = css("--late"), W = css("--idle"), M = css("--ink");
+  const ser = k => E.hist.filter(b => b[k] > 0).map(b => ({ x: mid(b), y: b[k] }));
+  const top = Math.max(...E.hist.map(b => b[2] + b[3] + b[4])) * 1.5;
+  ruChart.data.datasets = [
+    line("Genuine visits", ser(2), G), line("Impossible (forgot to close, double click)", ser(3), L, { pointRadius: 2 }),
+    line("Whitefield glitch (wait time included)", ser(4), W, { pointRadius: 2 }),
+    vline("Rule's fences", Math.max(lo, 0.02), 0.8, top, M, [5, 4]), vline("_hi", hi, 0.8, top, M, [5, 4]),
+  ];
+  ruChart.options.scales.y.max = top;
+  paint(ruChart);
+}
+registerLab(updRules);
+
+/* Lab 3.3: MCAR / MAR / MNAR */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const gen = rng(42), S = 0.28, VISITS = [];
+for (let i = 0; i < 5000; i++) {
+  const slow = i % 2 === 1, u1 = gen() || 1e-9, u2 = gen(), z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  VISITS.push({ slow, y: (slow ? 20 : 10) * Math.exp(-S * S / 2 + S * z), u: gen() });
+}
+const ranked = [...VISITS].sort((a, b) => a.y - b.y); ranked.forEach((v, i) => v.rank = i / (ranked.length - 1));
+const msChart = makeChart("msChart", "consult minutes", "", { yDisplay: false, xmin: 0, xmax: 45, ymin: 0 });
+let mech = "mnar";
+document.querySelectorAll("[data-mech]").forEach(b => b.addEventListener("click", () => {
+  mech = b.dataset.mech; document.querySelectorAll("[data-mech]").forEach(x => x.setAttribute("aria-pressed", x === b)); updMissing();
+}));
+bindOut("msRate", v => pct(v));
+const p80 = arr => { const s = arr.map(v => v.y).sort((a, b) => a - b); return s.length ? quantile(s, 0.8) : NaN; };
+function density(arr) { const out = []; for (let x = 0.5; x <= 45; x += 1) { const n = arr.filter(v => v.y >= x - 0.5 && v.y < x + 0.5).length; out.push({ x, y: n / VISITS.length }); } return out; }
+function updMissing() {
+  const rate = +$("msRate").value;
+  /* each visit gets a missing score; the `rate` share with the highest scores goes missing */
+  const scoreOf = v => mech === "mcar" ? v.u : mech === "mar" ? (v.slow ? 1 : 0) + 0.6 * v.u : v.rank + 0.35 * v.u;
+  const cut = [...VISITS].map(scoreOf).sort((a, b) => b - a)[Math.max(0, Math.round(rate * VISITS.length) - 1)];
+  const kept = rate === 0 ? VISITS : VISITS.filter(v => scoreOf(v) < cut);
+  const rows = [["Overall", VISITS, kept], ["Quick department", VISITS.filter(v => !v.slow), kept.filter(v => !v.slow)], ["Slow department", VISITS.filter(v => v.slow), kept.filter(v => v.slow)]];
+  $("msTable").innerHTML = rows.map(([name, all, k]) => { const t = p80(all), o = p80(k), e = o - t;
+    return `<tr><td>${name}</td><td class="num">${f(t, 1)}</td><td class="num">${isNaN(o) ? "–" : f(o, 1)}</td><td class="num">${isNaN(o) ? "–" : (e >= 0 ? "+" : "") + f(e, 1) + " min"}</td></tr>`; }).join("");
+  const eAll = p80(kept) - p80(VISITS), eSlow = p80(kept.filter(v => v.slow)) - p80(VISITS.filter(v => v.slow));
+  $("msSay").innerHTML = mech === "mcar" ? `<b>MCAR:</b> the rows left are a random sample, so every P80 stays put (errors are just sampling noise). Dropping is safe; you only lose data.`
+    : mech === "mar" ? `<b>MAR:</b> missingness depends on something you can see (the department). The overall P80 is off by ${f(eAll, 1)} min because the mix changed, but <b>inside each department</b> the P80 is still right. A model that uses department as a feature learns the right answer. This is the Whitefield case: dropping rows chosen by clinic and month costs data but doesn't bias what the model learns.`
+    : `<b>MNAR:</b> the longest visits are the ones that go missing. The P80 drops by ${f(-eAll, 1)} min overall and ${f(-eSlow, 1)} min even inside the slow department. No feature can fix it: the model would book slots that are too short, everywhere.`;
+  const A = css("--accent"), L = css("--late");
+  msChart.data.datasets = [area("All visits (truth)", density(VISITS), A, 0.25), line("Left after dropping", density(kept), L)];
+  paint(msChart);
+}
+registerLab(updMissing, ["msRate"]);
+
+/* Lab 3.4: the Whitefield step */
+const stChart = makeChart("stChart", "month (2026)", "median consult minutes", { ymin: 0, xmin: -0.3, xmax: E.months.length - 0.7 });
+stChart.options.scales.x.ticks = { callback: v => Number.isInteger(v) && E.months[v] ? E.months[v].slice(5) : "", stepSize: 1 };
+registerLab(function updStep() {
+  const clean = $("stClean").checked, table = clean ? E.medianClean : E.medianAll;
+  const colours = [css("--accent"), css("--idle"), css("--muted"), css("--ink"), css("--late")];
+  stChart.data.datasets = E.clinics.map((c, j) => line(c, table.map((row, i) => ({ x: i, y: row[j] })), colours[j % colours.length],
+    { pointRadius: 3, borderWidth: c === "Whitefield" ? 3 : 1.5 }));
+  const wf = E.clinics.indexOf("Whitefield"), mar = E.months.indexOf("2026-03");
+  $("stSay").innerHTML = clean ? `Without the glitch rows, Whitefield has <b>no data at all for March–April</b>: every one of its visits in those two months was affected. Its other months stay around 12 minutes and the other clinics don't change. Dropping costs one clinic two months of data, but what's left is honest.`
+    : `Whitefield's March median is <b>${f(table[mar][wf], 1)} min</b>, more than double its usual ~12. 97% of those rows are between 5 and 60 minutes: plausible, and invisible to any outlier rule.`;
+  stChart.options.scales.y.max = 32;
+  paint(stChart);
+}, ["stClean"]);
+
+startLabs();
+</script>
+
+<footer>Generated by <code>notes/interactive/build.py</code> from the project's simulator. Rerun it after changing <code>slotpred/world.py</code>.</footer>
+</div>

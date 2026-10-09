@@ -33,7 +33,10 @@ LESSONS = [
          name="The simulated hospital", stage="Stage 1 · Collect", note="notes/A02-simulator.md",
          summary="actual = hidden rule × log-normal noise; the oracle floor; who a fixed 15-minute slot hurts.",
          labs=["Hidden rule", "Log-normal noise", "z-scores", "Oracle", "Heatmap"]),
-    dict(id="A3", status="now", name="Exploring the messy export (EDA)", stage="Stage 2 · Explore", summary="Distributions, missing values, odd timestamps and leakage smells."),
+    dict(id="A3", slug="A03-eda", src="A03.html", status="now", data=True, title="A3 EDA Lab",
+         name="Exploring the messy export (EDA)", stage="Stage 2 · Explore", note="notes/A03-eda.md",
+         summary="Robust statistics, outlier rules scored against the truth, MCAR vs MAR vs MNAR, and a process change no rule can see.",
+         labs=["Robust statistics", "Outlier rules vs truth", "MCAR, MAR, MNAR", "The Whitefield step"]),
     dict(id="A4", name="Cleaning, features, time split", stage="Stage 3 · Prepare", summary="Fix the export, build booking-time features, split Jan–May / Jun / Jul–Aug."),
     dict(id="A5", name="Baselines", stage="Stage 4 · Baseline", summary="Fixed 15 minutes and department × visit-type medians: the bar to beat."),
     dict(id="A6", name="LightGBM quantile model", stage="Stage 5 · Train", summary="Gradient boosting with the pinball loss, one model per q."),
@@ -86,7 +89,7 @@ def slot_data():
             counts[round((np.floor(v / BIN) + 0.5) * BIN, 2)] += 1
         return sorted([m, n] for m, n in counts.items())
 
-    world, _ = simulate()
+    world, raw = simulate()
     test = world[world["date"] >= TEST_START]
     cells = {f"{d}|{v}": histogram(g["expected_minutes"]) for (d, v), g in test.groupby(["department", "visit_type"])}
     return {
@@ -102,6 +105,50 @@ def slot_data():
         "qCandidates": list(Q_CANDIDATES),
         "test": {"from": TEST_START, "visits": int(len(test)), "meanExpected": round(float(test["expected_minutes"].mean()), 2),
                  "hist": histogram(test["expected_minutes"]), "cells": cells},
+        "eda": eda_data(world, raw),
+    }
+
+
+def eda_data(world, raw):
+    """A3: the raw export's consult minutes, labelled with the hidden truth (genuine vs error)."""
+    import pandas as pd
+
+    r = raw.merge(world[["appointment_id", "actual_minutes"]], on="appointment_id")
+    start, end = pd.to_datetime(r["consult_start"]), pd.to_datetime(r["consult_end"])
+    minutes = (end - start).dt.total_seconds() / 60
+    has = minutes.notna()
+    r, minutes = r[has], minutes[has]
+    error = (minutes - r["actual_minutes"]).abs() > 0.05
+    whitefield = start[has] == pd.to_datetime(r["check_in"])
+
+    q1, q3 = minutes.quantile([0.25, 0.75])
+    logm = np.log(minutes.where(minutes > 0))
+    l1, l3 = logm.quantile([0.25, 0.75])
+    fences = {"raw": [q1 - 1.5 * (q3 - q1), q3 + 1.5 * (q3 - q1)],
+              "log": [float(np.exp(l1 - 1.5 * (l3 - l1))), float(np.exp(l3 + 1.5 * (l3 - l1)))],
+              "domain": [1.0, 120.0]}
+    rules = {}
+    for name, (lo, hi) in fences.items():
+        flag = (minutes < lo) | (minutes > hi)
+        rules[name] = {"flagged": int(flag.sum()), "caught": int((flag & error).sum()), "genuine": int((flag & ~error).sum()),
+                       "missed": int((~flag & error).sum()), "missedWhitefield": int((~flag & error & whitefield).sum())}
+
+    edges = 10 ** np.arange(np.log10(0.02), np.log10(330) + 0.06, 0.06)
+    kind = np.where(~error, 0, np.where(whitefield, 2, 1))          # 0 genuine, 1 impossible, 2 Whitefield glitch
+    idx = np.clip(np.digitize(minutes, edges) - 1, 0, len(edges) - 2)
+    hist = np.zeros((len(edges) - 1, 3), int)
+    np.add.at(hist, (idx, kind), 1)
+
+    month = pd.to_datetime(r["date"]).dt.to_period("M").astype(str)
+    frame = pd.DataFrame({"month": month, "clinic": r["clinic"], "m": minutes, "wf": whitefield})
+    med = lambda d: d.groupby(["month", "clinic"])["m"].median().unstack().round(2)
+    allrows, cleaned = med(frame), med(frame[~frame["wf"]])
+    return {
+        "n": int(len(minutes)), "errors": int(error.sum()),
+        "fences": {k: [round(float(a), 2), round(float(b), 2)] for k, (a, b) in fences.items()}, "rules": rules,
+        "hist": [[round(float(edges[i]), 4), round(float(edges[i + 1]), 4), *map(int, hist[i])] for i in range(len(hist)) if hist[i].sum()],
+        "months": list(allrows.index), "clinics": list(allrows.columns),
+        "medianAll": allrows.values.tolist(), "medianClean": cleaned.values.tolist(),
     }
 
 

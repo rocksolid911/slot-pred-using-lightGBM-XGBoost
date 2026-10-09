@@ -39,4 +39,9 @@ $$\text{MAE}_{oracle}=\text{expected}\times\big(2\Phi(\sigma)-1\big)\;=\;0.22\ti
 **Estimating σ from data** ([A2](A02-simulator.md))
 $$\hat\sigma=\operatorname{SD}\big(\log y_i-\log\hat y_i\big)$$
 
+**IQR fences** ([A3](A03-eda.md)): on skewed data apply them to $\log(x)$, then convert back with $e^x$.
+$$\text{IQR}=Q_3-Q_1,\qquad \text{flag outside }\big[Q_1-1.5\,\text{IQR},\;Q_3+1.5\,\text{IQR}\big]$$
+
+**When dropping rows biases a model** ([A3](A03-eda.md)): MCAR, never; MAR (missingness depends on observed columns), the overall mix shifts but $P(y\mid x)$ stays right; MNAR (depends on $y$ itself), biased.
+
 ## Track B

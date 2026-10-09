@@ -1,0 +1,200 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-robust">3.1 Robust statistics</a>
+  <a href="#lab-rules">3.2 Outlier rules vs the truth</a>
+  <a href="#lab-missing">3.3 MCAR, MAR, MNAR</a>
+  <a href="#lab-step">3.4 The Whitefield step</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>Look before you clean</h2>
+    <p>The export hides eight kinds of problem. EDA finds them without changing anything: robust statistics that bad rows can't drag around, outlier rules that know the difference between unusual and impossible, a careful look at who is missing, and time plots that reveal process changes no outlier rule can see.</p>
+  </div>
+
+  <div class="lab" id="lab-robust">
+    <div class="lab-head"><span class="tag">Lab 3.1</span><h3>One bad row vs the mean, the median and the IQR fences</h3></div>
+    <p class="say">Add one visit the doctor forgot to close and watch which statistics move. The mean is dragged along; the median barely notices. IQR fences on the raw scale also flag genuine long visits, because consult times are right-skewed; on the log scale they don't.</p>
+    <div class="controls">
+      <div class="ctl" style="grid-column: 1 / -1">
+        <label for="rvVisits">Visit lengths (minutes, separated by commas)</label>
+        <input type="text" id="rvVisits" value="8, 9, 10, 11, 12, 13, 14, 16, 20, 27">
+        <span class="err" id="rvErr" hidden></span>
+      </div>
+      <div class="ctl"><label for="rvBad">Forgotten-to-close visit <output id="rvBadOut"></output></label><input type="range" id="rvBad" min="0" max="300" step="5" value="240"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Mean</span><strong id="rvMean"></strong></div>
+      <div class="stat"><span>Median</span><strong id="rvMed"></strong></div>
+      <div class="stat"><span>Raw IQR fences</span><strong id="rvRawF"></strong></div>
+      <div class="stat"><span>Log IQR fences</span><strong id="rvLogF"></strong></div>
+    </div>
+    <div class="formula" id="rvFormula"></div>
+    <p class="say" id="rvSay"></p>
+    <div class="chart short"><canvas id="rvChart" aria-label="Visits on a log scale with IQR fences"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-rules">
+    <div class="lab-head"><span class="tag">Lab 3.2</span><h3>Three outlier rules, scored against the hidden truth</h3></div>
+    <p class="say">Because we simulated the hospital, we know which of the export's consult times are wrong. Pick a rule and see what it catches, what genuine visits it throws away, and what it misses entirely.</p>
+    <div class="seg" role="group" aria-label="Outlier rule">
+      <button type="button" data-rule="raw" aria-pressed="false">Raw IQR</button>
+      <button type="button" data-rule="log" aria-pressed="false">Log IQR</button>
+      <button type="button" data-rule="domain" aria-pressed="true">Domain rule (1–120 min)</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Rows flagged</span><strong id="ruFlag"></strong></div>
+      <div class="stat"><span>Real errors caught</span><strong id="ruCaught"></strong></div>
+      <div class="stat"><span>Genuine visits thrown away</span><strong id="ruGen"></strong></div>
+      <div class="stat"><span>Errors missed (Whitefield)</span><strong id="ruMiss"></strong></div>
+    </div>
+    <p class="say" id="ruSay"></p>
+    <div class="chart"><canvas id="ruChart" aria-label="Consult minutes in the raw export, by kind, with the chosen rule's fences"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-missing">
+    <div class="lab-head"><span class="tag">Lab 3.3</span><h3>Dropping missing rows: when does it bias the data?</h3></div>
+    <p class="say">5,000 simulated visits from two departments: a quick one (expected 10 min) and a slow one (expected 20 min). Remove some of them under three different mechanisms, then compare the P80 of what's left with the truth, overall and inside each department.</p>
+    <div class="controls">
+      <div class="ctl"><label for="msRate">Share of rows missing <output id="msRateOut"></output></label><input type="range" id="msRate" min="0" max="0.6" step="0.05" value="0.3"></div>
+      <div class="ctl"><span class="lbl">Why rows go missing</span>
+        <div class="seg" role="group" aria-label="Missing mechanism">
+          <button type="button" data-mech="mcar" aria-pressed="false">MCAR: pure chance</button>
+          <button type="button" data-mech="mar" aria-pressed="false">MAR: mostly the slow department</button>
+          <button type="button" data-mech="mnar" aria-pressed="true">MNAR: mostly the longest visits</button>
+        </div>
+      </div>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>P80 of consult minutes</th><th class="num">All visits (truth)</th><th class="num">After dropping</th><th class="num">Error</th></tr></thead>
+      <tbody id="msTable"></tbody>
+    </table></div>
+    <p class="say" id="msSay"></p>
+    <div class="chart short"><canvas id="msChart" aria-label="Distribution of visit lengths before and after dropping"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-step">
+    <div class="lab-head"><span class="tag">Lab 3.4</span><h3>A process change looks like valid data</h3></div>
+    <p class="say">Monthly median consult minutes per clinic, straight from the export. Whitefield doubles in March–April. No outlier rule catches it (Lab 3.2): almost every row looks plausible. Only a time plot, and then the timestamp check <code>consult_start == check_in</code>, gives it away.</p>
+    <label class="check"><input type="checkbox" id="stClean"> Remove the 1,753 rows where <code>consult_start</code> equals <code>check_in</code></label>
+    <p class="say" id="stSay"></p>
+    <div class="chart"><canvas id="stChart" aria-label="Monthly median consult minutes per clinic"></canvas></div>
+  </div>
+</section>
+
+<script>
+const E = D.eda;
+const quantile = (sorted, p) => { const i = (sorted.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return sorted[lo] + (sorted[hi] - sorted[lo]) * (i - lo); };
+const fences = v => { const s = [...v].sort((a, b) => a - b), q1 = quantile(s, 0.25), q3 = quantile(s, 0.75), i = q3 - q1; return [q1 - 1.5 * i, q3 + 1.5 * i, q1, q3]; };
+
+/* Lab 3.1: robust statistics */
+const rvChart = makeChart("rvChart", "minutes (log scale)", "", { yDisplay: false, ymin: -1, ymax: 1 });
+rvChart.options.scales.x.type = "logarithmic";
+bindOut("rvBad", v => v ? v + " min" : "none");
+registerLab(function updRobust() {
+  const raw = $("rvVisits").value.split(/[,\s]+/).filter(Boolean).map(Number);
+  const base = raw.filter(x => isFinite(x) && x > 0), err = $("rvErr");
+  if (base.length < 4 || base.length !== raw.length) { err.hidden = false; err.textContent = "Enter at least four positive numbers, separated by commas."; return; }
+  err.hidden = true;
+  const bad = +$("rvBad").value, v = bad ? [...base, bad] : base, s = [...v].sort((a, b) => a - b);
+  const mean = v.reduce((a, b) => a + b) / v.length, med = quantile(s, 0.5);
+  const mean0 = base.reduce((a, b) => a + b) / base.length, med0 = quantile([...base].sort((a, b) => a - b), 0.5);
+  const [rlo, rhi, q1, q3] = fences(v), [llo, lhi, l1, l3] = fences(v.map(Math.log));
+  $("rvMean").textContent = f(mean, 1); $("rvMed").textContent = f(med, 1);
+  $("rvRawF").textContent = `${f(rlo, 1)} – ${f(rhi, 1)}`; $("rvLogF").textContent = `${f(Math.exp(llo), 1)} – ${f(Math.exp(lhi), 1)}`;
+  tex($("rvFormula"), R`\text{raw: } [Q_1-1.5\,\text{IQR},\;Q_3+1.5\,\text{IQR}] = [${f(q1, 2)}-1.5\cdot${f(q3 - q1, 2)},\;${f(q3, 2)}+1.5\cdot${f(q3 - q1, 2)}] = [${f(rlo, 1)},\;${f(rhi, 1)}]` +
+    R`\qquad \text{log: } [e^{${f(llo, 2)}},\;e^{${f(lhi, 2)}}] = [${f(Math.exp(llo), 1)},\;${f(Math.exp(lhi), 1)}]`);
+  const rawFlag = v.filter(x => x < rlo || x > rhi), logFlag = v.filter(x => Math.log(x) < llo || Math.log(x) > lhi);
+  $("rvSay").innerHTML = (bad ? `One bad row moved the mean from ${f(mean0, 1)} to <b>${f(mean, 1)}</b> (${mean0 ? "+" + pct(mean / mean0 - 1) : ""}); the median moved from ${f(med0, 1)} to <b>${f(med, 1)}</b>. ` : "No bad row: mean and median describe the same visits. ") +
+    `Raw fences flag <b>${rawFlag.length ? rawFlag.join(", ") : "nothing"}</b>; log fences flag <b>${logFlag.length ? logFlag.join(", ") : "nothing"}</b>.`;
+  const A = css("--accent"), L = css("--late"), I = css("--idle"), M = css("--muted");
+  rvChart.data.datasets = [
+    { label: "Visits", data: base.map(x => ({ x, y: 0 })), pointRadius: 6, backgroundColor: A, borderColor: A },
+    ...(bad ? [{ label: "Forgotten to close", data: [{ x: bad, y: 0 }], pointRadius: 8, pointStyle: "rectRot", backgroundColor: L, borderColor: L }] : []),
+    vline("Raw IQR fences", Math.max(rlo, 0.5), -0.8, 0.8, M, [5, 4]), vline("_raw hi", rhi, -0.8, 0.8, M, [5, 4]),
+    vline("Log IQR fences", Math.exp(llo), -0.8, 0.8, I), vline("_log hi", Math.exp(lhi), -0.8, 0.8, I),
+  ];
+  rvChart.options.scales.x.min = 1; rvChart.options.scales.x.max = Math.max(400, Math.max(...v) * 1.3);
+  paint(rvChart);
+}, ["rvVisits", "rvBad"]);
+
+/* Lab 3.2: outlier rules vs the truth */
+const ruChart = makeChart("ruChart", "consult minutes in the export (log scale)", "rows per bin (log scale)", {});
+ruChart.options.scales.x.type = "logarithmic"; ruChart.options.scales.y.type = "logarithmic";
+ruChart.options.scales.x.min = 0.02; ruChart.options.scales.x.max = 330; ruChart.options.scales.y.min = 0.8;
+let rule = "domain";
+document.querySelectorAll("[data-rule]").forEach(b => b.addEventListener("click", () => {
+  rule = b.dataset.rule; document.querySelectorAll("[data-rule]").forEach(x => x.setAttribute("aria-pressed", x === b)); updRules();
+}));
+const NAMES = { raw: "The raw-scale IQR rule", log: "The log-scale IQR rule", domain: "The domain rule" };
+function updRules() {
+  const r = E.rules[rule], [lo, hi] = E.fences[rule];
+  $("ruFlag").textContent = r.flagged.toLocaleString(); $("ruCaught").textContent = r.caught.toLocaleString();
+  $("ruGen").textContent = r.genuine.toLocaleString(); $("ruMiss").textContent = `${r.missed.toLocaleString()} (${r.missedWhitefield.toLocaleString()})`;
+  $("ruSay").innerHTML = `${NAMES[rule]} keeps ${lo > 0 ? f(lo, 1) : "everything above 0"} to ${f(hi, 1)} minutes. It catches <b>${r.caught}</b> of the ${E.errors.toLocaleString()} wrong rows ` +
+    `and throws away <b>${r.genuine.toLocaleString()}</b> genuine visits. It misses <b>${r.missedWhitefield.toLocaleString()}</b> Whitefield glitch rows, ` +
+    (rule === "raw" ? "though it catches some only because the glitch made them long." : "because each one looks like a perfectly plausible 25-minute visit.");
+  const mid = b => Math.sqrt(b[0] * b[1]), G = css("--accent"), L = css("--late"), W = css("--idle"), M = css("--ink");
+  const ser = k => E.hist.filter(b => b[k] > 0).map(b => ({ x: mid(b), y: b[k] }));
+  const top = Math.max(...E.hist.map(b => b[2] + b[3] + b[4])) * 1.5;
+  ruChart.data.datasets = [
+    line("Genuine visits", ser(2), G), line("Impossible (forgot to close, double click)", ser(3), L, { pointRadius: 2 }),
+    line("Whitefield glitch (wait time included)", ser(4), W, { pointRadius: 2 }),
+    vline("Rule's fences", Math.max(lo, 0.02), 0.8, top, M, [5, 4]), vline("_hi", hi, 0.8, top, M, [5, 4]),
+  ];
+  ruChart.options.scales.y.max = top;
+  paint(ruChart);
+}
+registerLab(updRules);
+
+/* Lab 3.3: MCAR / MAR / MNAR */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const gen = rng(42), S = 0.28, VISITS = [];
+for (let i = 0; i < 5000; i++) {
+  const slow = i % 2 === 1, u1 = gen() || 1e-9, u2 = gen(), z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  VISITS.push({ slow, y: (slow ? 20 : 10) * Math.exp(-S * S / 2 + S * z), u: gen() });
+}
+const ranked = [...VISITS].sort((a, b) => a.y - b.y); ranked.forEach((v, i) => v.rank = i / (ranked.length - 1));
+const msChart = makeChart("msChart", "consult minutes", "", { yDisplay: false, xmin: 0, xmax: 45, ymin: 0 });
+let mech = "mnar";
+document.querySelectorAll("[data-mech]").forEach(b => b.addEventListener("click", () => {
+  mech = b.dataset.mech; document.querySelectorAll("[data-mech]").forEach(x => x.setAttribute("aria-pressed", x === b)); updMissing();
+}));
+bindOut("msRate", v => pct(v));
+const p80 = arr => { const s = arr.map(v => v.y).sort((a, b) => a - b); return s.length ? quantile(s, 0.8) : NaN; };
+function density(arr) { const out = []; for (let x = 0.5; x <= 45; x += 1) { const n = arr.filter(v => v.y >= x - 0.5 && v.y < x + 0.5).length; out.push({ x, y: n / VISITS.length }); } return out; }
+function updMissing() {
+  const rate = +$("msRate").value;
+  /* each visit gets a missing score; the `rate` share with the highest scores goes missing */
+  const scoreOf = v => mech === "mcar" ? v.u : mech === "mar" ? (v.slow ? 1 : 0) + 0.6 * v.u : v.rank + 0.35 * v.u;
+  const cut = [...VISITS].map(scoreOf).sort((a, b) => b - a)[Math.max(0, Math.round(rate * VISITS.length) - 1)];
+  const kept = rate === 0 ? VISITS : VISITS.filter(v => scoreOf(v) < cut);
+  const rows = [["Overall", VISITS, kept], ["Quick department", VISITS.filter(v => !v.slow), kept.filter(v => !v.slow)], ["Slow department", VISITS.filter(v => v.slow), kept.filter(v => v.slow)]];
+  $("msTable").innerHTML = rows.map(([name, all, k]) => { const t = p80(all), o = p80(k), e = o - t;
+    return `<tr><td>${name}</td><td class="num">${f(t, 1)}</td><td class="num">${isNaN(o) ? "–" : f(o, 1)}</td><td class="num">${isNaN(o) ? "–" : (e >= 0 ? "+" : "") + f(e, 1) + " min"}</td></tr>`; }).join("");
+  const eAll = p80(kept) - p80(VISITS), eSlow = p80(kept.filter(v => v.slow)) - p80(VISITS.filter(v => v.slow));
+  $("msSay").innerHTML = mech === "mcar" ? `<b>MCAR:</b> the rows left are a random sample, so every P80 stays put (errors are just sampling noise). Dropping is safe; you only lose data.`
+    : mech === "mar" ? `<b>MAR:</b> missingness depends on something you can see (the department). The overall P80 is off by ${f(eAll, 1)} min because the mix changed, but <b>inside each department</b> the P80 is still right. A model that uses department as a feature learns the right answer. This is the Whitefield case: dropping rows chosen by clinic and month costs data but doesn't bias what the model learns.`
+    : `<b>MNAR:</b> the longest visits are the ones that go missing. The P80 drops by ${f(-eAll, 1)} min overall and ${f(-eSlow, 1)} min even inside the slow department. No feature can fix it: the model would book slots that are too short, everywhere.`;
+  const A = css("--accent"), L = css("--late");
+  msChart.data.datasets = [area("All visits (truth)", density(VISITS), A, 0.25), line("Left after dropping", density(kept), L)];
+  paint(msChart);
+}
+registerLab(updMissing, ["msRate"]);
+
+/* Lab 3.4: the Whitefield step */
+const stChart = makeChart("stChart", "month (2026)", "median consult minutes", { ymin: 0, xmin: -0.3, xmax: E.months.length - 0.7 });
+stChart.options.scales.x.ticks = { callback: v => Number.isInteger(v) && E.months[v] ? E.months[v].slice(5) : "", stepSize: 1 };
+registerLab(function updStep() {
+  const clean = $("stClean").checked, table = clean ? E.medianClean : E.medianAll;
+  const colours = [css("--accent"), css("--idle"), css("--muted"), css("--ink"), css("--late")];
+  stChart.data.datasets = E.clinics.map((c, j) => line(c, table.map((row, i) => ({ x: i, y: row[j] })), colours[j % colours.length],
+    { pointRadius: 3, borderWidth: c === "Whitefield" ? 3 : 1.5 }));
+  const wf = E.clinics.indexOf("Whitefield"), mar = E.months.indexOf("2026-03");
+  $("stSay").innerHTML = clean ? `Without the glitch rows, Whitefield has <b>no data at all for March–April</b>: every one of its visits in those two months was affected. Its other months stay around 12 minutes and the other clinics don't change. Dropping costs one clinic two months of data, but what's left is honest.`
+    : `Whitefield's March median is <b>${f(table[mar][wf], 1)} min</b>, more than double its usual ~12. 97% of those rows are between 5 and 60 minutes: plausible, and invisible to any outlier rule.`;
+  stChart.options.scales.y.max = 32;
+  paint(stChart);
+}, ["stClean"]);
+
+startLabs();
+</script>
