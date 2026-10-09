@@ -19,8 +19,8 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 |---|---|---|---|---|
 | A1 | 0 Framing | Target, P50 vs P80, pinball loss, metrics | [A01-framing.md](A01-framing.md) | ✅ done |
 | A2 | 1 Collect | Simulating the hospital (a stand-in for an EMR export) | [A02-simulator.md](A02-simulator.md) | ✅ done |
-| A3 | 2 Explore | EDA: distributions, missing values, leakage smells | [A03-eda.md](A03-eda.md) | ✍️ add "In my words" |
-| A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | | |
+| A3 | 2 Explore | EDA: distributions, missing values, leakage smells | [A03-eda.md](A03-eda.md) | ✅ done |
+| A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | | ▶️ next |
 | A5 | 4 Baseline | Fixed 15 min; department × visit-type median | | |
 | A6 | 5 Train | LightGBM with the quantile objective | | |
 | A7 | 5 Train | XGBoost comparison | | |

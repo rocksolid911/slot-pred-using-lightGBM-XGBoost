@@ -155,7 +155,11 @@ No. It's recorded when the patient arrives, after booking.
 </details>
 
 ## In my words
-<!-- Siddhant: 3 lines, your own words. -->
+- EDA: EDA means looking at the data before changing anything. The main rule is to look first, write down every problem with numbers, and fix things later in A4.
+
+- Outliers: Unusual is not the same as impossible. The domain rule (under 1 minute or over 2 hours, 669 rows) finds the impossible values. The raw IQR is skewed by the long right tail, so it flagged 2,204 rows, including real 32–40 min consults. Log-IQR (778 rows) is kinder to those, but it only gives a list to inspect, and the domain rule decides what to remove.
+
+- Whitefield: Each bad Whitefield row looks like a normal 25-minute visit, so no outlier rule caught it. The monthly plot per clinic and the consult_start == check_in check found it. 1,753 rows in March and April had the same timestamps, probably from a process change. Outlier rules find single bad values, and plots over time or by group find a whole period recorded differently.
 
 ## New terms
 EDA, problem log, robust statistics, IQR, fences, domain rule, MCAR, MAR, MNAR, placeholder value, process change, hidden state
