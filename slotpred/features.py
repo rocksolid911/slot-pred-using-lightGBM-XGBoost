@@ -36,8 +36,10 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
         hour      9 .. 17, from `slot_time` ("HH:MM")
     This is a RULE (row by row), so it runs the same way everywhere.
     """
-    # TODO(you)
-    raise NotImplementedError
+    out = df.copy()
+    out["weekday"] = pd.to_datetime(out["date"], format="%Y-%m-%d").dt.weekday
+    out["hour"] = pd.to_datetime(out["slot_time"], format="%H:%M").dt.hour
+    return out
 
 
 def impute_age(age: pd.Series, fill: float):
@@ -47,8 +49,9 @@ def impute_age(age: pd.Series, fill: float):
         age_missing  int 0/1: 1 where `age` was NaN, so the model can tell
                      "really 42" apart from "unknown, filled with 42"
     """
-    # TODO(you)
-    raise NotImplementedError
+    age_filled = age.fillna(fill)
+    age_missing = age.isna().astype(int)
+    return age_filled, age_missing
 
 
 def fit_prep(train: pd.DataFrame) -> PrepState:
@@ -57,8 +60,9 @@ def fit_prep(train: pd.DataFrame) -> PrepState:
         age_fill     the median of train["age"] (NaN is ignored by pandas' median)
         categories   for each column in CATEGORICAL: the sorted list of distinct, non-missing values
     """
-    # TODO(you)
-    raise NotImplementedError
+    age_fill = train["age"].median()
+    categories = {col: sorted(train[col].dropna().unique()) for col in CATEGORICAL}
+    return PrepState(age_fill=age_fill, categories=categories)
 
 
 # ---------------------------------------------------------------- Claude

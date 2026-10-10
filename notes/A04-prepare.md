@@ -1,6 +1,6 @@
 # A4 · Prepare: cleaning, features, and the split by time (lifecycle stage 3: Prepare)
 
-> **Date:** 2026-10-09 · **Notebook:** [notebooks/A04_prepare.ipynb](../notebooks/A04_prepare.ipynb) · **Code:** [clean.py](../slotpred/clean.py), [split.py](../slotpred/split.py), [features.py](../slotpred/features.py), [prepare.py](../slotpred/prepare.py) · **Git tag:** `lesson-A4`
+> **Date:** 2026-10-09 · **Notebook:** [notebooks/A04_prepare.ipynb](../notebooks/A04_prepare.ipynb) · **Code:** [clean.py](../slotpred/clean.py), [split.py](../slotpred/split.py), [features.py](../slotpred/features.py), [prepare.py](../slotpred/prepare.py) · **Lab page:** [A4 Prepare Lab](https://claude.ai/artifact/1u2Bvgmm571WYeeZF7DTut) · **Git tag:** `lesson-A4`
 
 ## In one line
 **Rules may run anywhere; learned steps are fitted on the training rows only; and the split follows time**, so nothing from the future, and nothing recorded after booking, reaches the model.
@@ -107,9 +107,55 @@ $$
 | Experiments 1 and 2 | [A04_prepare.ipynb](../notebooks/A04_prepare.ipynb) | me |
 
 ## Our results
-<!-- From your notebook run: the funnel, split sizes, both experiment tables. -->
+
+### The funnel, reconciled with the A3 problem log
+
+| Step | Removed | A3 log | Why the counts differ |
+|---|---|---|---|
+| 1 exact duplicates | 175 | 175 | same |
+| 2 unrecognised doctor / visit type | 0 | — | every spelling mapped |
+| 5a `consult_end` missing | 100 | 100 | same |
+| 5b Whitefield March–April | 1,740 | 1,753 | 9 were duplicates (gone in step 1); 4 had no `consult_end` (counted under 5a) |
+| 5c under 1 or over 120 min | 637 | 669 | 3 were duplicates; 29 were also in the Whitefield window (counted under 5b) |
+| **Total** | 43,922 → **41,270** clean visits | | |
+
+### Splits
+
+| Split | Rows | First | Last |
+|---|---|---|---|
+| train | 24,818 | 2026-01-01 | 2026-05-30 (31 May is a Sunday) |
+| valid | 5,515 | 2026-06-01 | 2026-06-30 |
+| test | 10,937 | 2026-07-01 | 2026-08-31 |
+
+- `fit_prep` on train: age_fill = **42**; 8 departments, 3 visit types, **20** doctors (Nikhil Verma is absent), 5 clinics.
+- Nikhil Verma: 0 / 0 / **500** visits; in `X_test` his `doctor` is NaN (an unseen level).
+- `age_missing == 1`: 494 / 136 / 221 rows, all filled with 42.
+
+### Experiment 1: random split vs split by time (department × visit-type median)
+
+| | MAE | Derm MAE | Derm bias | Test rows |
+|---|---|---|---|---|
+| Split by time (Jan–May → Jul–Aug) | 3.83 | 4.13 | **+3.66** | 10,937 |
+| Random 80/20 | **3.54** | 3.10 | +0.83 | 8,254 |
+| Same random-split model, Jul–Aug rows only | 3.84 | 4.19 | +3.29 | 2,234 |
+
+The random split's good score comes from easy pre-drift months in its test set. On the future months it's as bad as the honest number; it only *hid* the drift. Row 3's bias is slightly smaller than row 1's because some July–August rows leaked into training.
+
+### Experiment 2: what the learned step may see
+
+| Median fitted on… | Key | Test MAE | Derm MAE | Derm bias |
+|---|---|---|---|---|
+| train only (honest) | department × visit type | 3.83 | 4.13 | +3.66 |
+| all months (leaky) | department × visit type | 3.77 | 3.72 | +2.99 |
+| train only (honest) | doctor × visit type | 3.73 | 4.12 | +3.62 |
+| all months (leaky) | doctor × visit type | 3.53 | 3.70 | +2.96 |
+
+Age median: 42 on train, 42 on all months; no visible leak here, but the rule still applies.
 
 ## Gotchas
+- **Ambiguous aliases map silently to the wrong row.** My extra `"S. Patil"` form made `"D. Rao"` match both Deepak Rao and Divya Rao, and the loop returned whichever came first. A matcher must return None when more than one name matches.
+- **Don't name a variable after a function.** `time_split = median_baseline(...)` in the notebook replaced the imported `time_split()` function, so rerunning the split cell would crash.
+- Parse fixed formats explicitly (`format="%H:%M"`, or `str[:2]`); letting pandas guess one value at a time is slow and fragile.
 - Quick check Q4: the point of `age_missing` is **not** the fill value. After filling, "really 42" and "unknown" look identical; only the flag tells them apart.
 
 ## Self-check
@@ -140,7 +186,15 @@ The model can only learn about levels it saw in training. A level first seen lat
 </details>
 
 ## In my words
-<!-- Written by you, not Claude: 3 lines, as if teaching a friend. -->
-
+the goal isn't low error on data you've seen, it's low average error on the visits that will arrive after deployment.for time-ordered data like slot bookings, split by time. A random split leaks the future into training and hides drift.train data for fitting, test data for evaluation, never both at once
+- Rule (fixed, no data needed): normalise_doctor, normalise_visit_type or fix_age. They map "dr nikhil verma" to "Nikhil Verma" the same way for every row. A rule may run anywhere: before the split, in training, and in the API at prediction time.
+- Learned step (computed from many rows): the age median used for filling, or the category list for doctor. It must be fitted on the training rows only, then the fixed result is applied to validation, test and live data
+- target_ok checks minutes, which needs consult_end. That doesn't exist until the visit is over, so at booking time there is nothing to check. It's a target rule, used only to clean the training data.
+- normalise_doctor works on a feature that exists at booking. If the API skipped it, "dr nikhil verma" would arrive unnormalised and be treated as an unknown level. That would be training–serving skew, so it must run at prediction time too.
+- Every other doctor has a pace that isn't recorded anywhere. The model learns it from that doctor's past visits through the doctor feature, and dropping the feature would throw that away for the other 20 doctors.
+- Nikhil is a cold start: his level wasn't in training, so he becomes "unknown" instead of crashing. That is how the deployed model will meet every new doctor, and the A12 monitoring step is meant to flag it.
+- Duplicates of the same visit can land in both train and test.
+- The model then gets scored on rows it has effectively already seen. That is leakage, and it makes the score look better than it is.
+- The fix is to drop duplicates before splitting, which is how the pipeline does it (raw.drop_duplicates() in clean.py).
 ## New terms
 rule vs learned step, fit/transform, training–serving skew, split by time, random split, drift, cold start, imputation, missing-indicator flag, unseen category, funnel

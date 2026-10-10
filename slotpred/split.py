@@ -26,8 +26,11 @@ def time_split(df: pd.DataFrame, date_col="date") -> dict:
 
     `date_col` holds text "YYYY-MM-DD", which compares correctly as a string (or use .between).
     """
-    # TODO(you)
-    raise NotImplementedError
+    return {
+        "train": df[df[date_col].between(SIM_START, TRAIN_END)].copy(),
+        "valid": df[df[date_col].between(VALID_START, VALID_END)].copy(),
+        "test": df[df[date_col].between(TEST_START, SIM_END)].copy(),
+    }
 
 
 def random_split(df: pd.DataFrame, test_frac=0.2, seed=0) -> dict:

@@ -37,8 +37,11 @@ LESSONS = [
          name="Exploring the messy export (EDA)", stage="Stage 2 · Explore", note="notes/A03-eda.md",
          summary="Robust statistics, outlier rules scored against the truth, MCAR vs MAR vs MNAR, and a process change no rule can see.",
          labs=["Robust statistics", "Outlier rules vs truth", "MCAR, MAR, MNAR", "The Whitefield step"]),
-    dict(id="A4", status="now", name="Cleaning, features, time split", stage="Stage 3 · Prepare", summary="Fix the export, build booking-time features, split Jan–May / Jun / Jul–Aug."),
-    dict(id="A5", name="Baselines", stage="Stage 4 · Baseline", summary="Fixed 15 minutes and department × visit-type medians: the bar to beat."),
+    dict(id="A4", slug="A04-prepare", src="A04.html", status="done", data=True, title="A4 Prepare Lab",
+         name="Cleaning, features, time split", stage="Stage 3 · Prepare", note="notes/A04-prepare.md",
+         summary="Rules run anywhere, learned steps are fitted on train only, and the split follows time.",
+         labs=["Cleaning funnel", "Random vs time split", "What may the fit see?", "Rule or learned?"]),
+    dict(id="A5", status="now", name="Baselines", stage="Stage 4 · Baseline", summary="Fixed 15 minutes and department × visit-type medians: the bar to beat."),
     dict(id="A6", name="LightGBM quantile model", stage="Stage 5 · Train", summary="Gradient boosting with the pinball loss, one model per q."),
     dict(id="A7", name="XGBoost comparison", stage="Stage 5 · Train", summary="Same idea, different library; keep the winner."),
     dict(id="A8", name="Evaluation", stage="Stage 6 · Evaluate", summary="Slices, calibration, error analysis, and the PO's trade-off table."),
@@ -106,7 +109,60 @@ def slot_data():
         "test": {"from": TEST_START, "visits": int(len(test)), "meanExpected": round(float(test["expected_minutes"].mean()), 2),
                  "hist": histogram(test["expected_minutes"]), "cells": cells},
         "eda": eda_data(world, raw),
+        "prep": prep_data(),
     }
+
+
+def prep_data():
+    """A4: the cleaning funnel, the splits and both leakage experiments, run on the real export."""
+    import pandas as pd
+
+    from slotpred.clean import GLITCH_CLINIC, GLITCH_FROM, GLITCH_TO, add_minutes, clean, normalise_labels
+    from slotpred.config import TEST_START
+    from slotpred.eda import load_raw
+    from slotpred.features import fit_prep
+    from slotpred.split import random_split, time_split
+
+    raw = load_raw()
+    df, funnel = clean(raw)
+    # each problem counted on its own, before dedup and without "first reason wins" (the A3 view)
+    m = add_minutes(raw)
+    in_window = (raw["clinic"] == GLITCH_CLINIC) & raw["date"].between(GLITCH_FROM, GLITCH_TO)
+    alone = {"dup": int(raw.duplicated().sum()), "missing": int(m.isna().sum()),
+             "whitefield": int(in_window.sum()), "range": int((m.notna() & ~m.between(1, 120)).sum())}
+    removed = dict(zip(["dup", "labels", "missing", "whitefield", "range"], funnel["removed"].iloc[:5].astype(int)))
+
+    splits = time_split(df)
+    month = df["date"].str[:7]
+    which = np.select([df["date"] < "2026-06-01", df["date"] < TEST_START], ["train", "valid"], "test")
+    months = sorted(month.unique())
+    per_month = {s: [int(((month == mo) & (which == s)).sum()) for mo in months] for s in ("train", "valid", "test")}
+
+    def scores(train, test, key):
+        med = train.groupby(key)["minutes"].median().rename("pred")
+        t = test.join(med, on=key)
+        t["pred"] = t["pred"].fillna(train["minutes"].median())
+        err, derm = t["minutes"] - t["pred"], t["department"] == "Dermatology"
+        return {"mae": round(float(err.abs().mean()), 2), "dermMae": round(float(err[derm].abs().mean()), 2),
+                "dermBias": round(float(err[derm].mean()), 2), "n": int(len(t))}
+
+    test = splits["test"]
+    fits = {"train": splits["train"], "trainValid": pd.concat([splits["train"], splits["valid"]]), "all": df}
+    keys = {"dept": ["department", "visit_type"], "doctor": ["doctor", "visit_type"]}
+    leak = {f: {k: scores(rows, test, key) for k, key in keys.items()} | {"ageMedian": float(rows["age"].median())}
+            for f, rows in fits.items()}
+    r = random_split(df)
+    state = fit_prep(splits["train"])
+    return {
+        "raw": int(len(raw)), "clean": int(len(df)), "removed": removed, "alone": alone,
+        "months": months, "perMonth": per_month, "ageFill": float(state.age_fill),
+        "doctorsInTrain": len(state.categories["doctor"]),
+        "nikhil": {s: int((part["doctor"] == "Nikhil Verma").sum()) for s, part in splits.items()},
+        "split": {"time": scores(splits["train"], test, keys["dept"]), "random": scores(r["train"], r["test"], keys["dept"]),
+                  "randomJulAug": scores(r["train"], r["test"][r["test"]["date"] >= TEST_START], keys["dept"])},
+        "leak": leak,
+    }
+
 
 
 def eda_data(world, raw):

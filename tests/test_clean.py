@@ -16,7 +16,7 @@ from slotpred.config import DATA
 # ---------------------------------------------------------------- normalise_doctor
 
 @pytest.mark.parametrize("spelling", ["Sanjay Patil", "Dr. Sanjay Patil", "DR SANJAY PATIL",
-                                      "Sanjay P.", " dr sanjay patil "])
+                                      "Sanjay P.", "S. Patil", " dr sanjay patil "])
 def test_doctor_spellings_map_to_roster(spelling):
     assert c.normalise_doctor(spelling) == "Sanjay Patil"
 
@@ -30,6 +30,11 @@ def test_every_roster_doctor_in_every_style():
 
 def test_unknown_doctor_gives_none_not_an_error():
     assert c.normalise_doctor("Dr. Gregory House") is None
+
+
+def test_ambiguous_initials_give_none():
+    assert c.normalise_doctor("D. Rao") is None        # Deepak Rao or Divya Rao?
+    assert c.normalise_doctor("Divya R.") == "Divya Rao"
 
 
 # ---------------------------------------------------------------- normalise_visit_type
@@ -62,12 +67,15 @@ def test_fix_age_removes_placeholder_keeps_real_values():
 # ---------------------------------------------------------------- add_minutes
 
 def test_add_minutes():
-    df = pd.DataFrame({"consult_start": ["2026-03-02 10:00:00", "2026-03-02 11:00:00"],
-                       "consult_end": ["2026-03-02 10:12:30", None]}, index=[7, 9])
+    df = pd.DataFrame({"consult_start": ["2026-03-02 10:00:00", "2026-03-02 11:00:00",
+                                         "2026-03-02 12:00:00"],
+                       "consult_end": ["2026-03-02 10:12:30", None, "2026-03-02 11:59:00"]},
+                      index=[7, 9, 11])
     m = c.add_minutes(df)
     assert m.loc[7] == pytest.approx(12.5)
     assert np.isnan(m.loc[9])
-    assert list(m.index) == [7, 9]
+    assert np.isnan(m.loc[11])
+    assert list(m.index) == [7, 9, 11]
 
 
 # ---------------------------------------------------------------- target_ok

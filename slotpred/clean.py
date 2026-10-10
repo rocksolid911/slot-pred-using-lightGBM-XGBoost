@@ -11,7 +11,6 @@ Two kinds of rule:
 
     .venv/Scripts/python.exe -m pytest tests/test_clean.py -v
 """
-import numpy as np
 import pandas as pd
 
 from .eda import load_raw
@@ -41,10 +40,29 @@ def normalise_doctor(name):
     may receive a doctor the roster doesn't know yet, and that must not crash the service.
 
     Hints: strip spaces and lower-case first; remove a leading "dr." or "dr "; then compare with each
-    roster name in lower case, and with its "first initial." form ("sanjay p.").
+    roster name in lower case, and with abbreviated first/last-name forms.
     """
-    # TODO(you)
-    raise NotImplementedError
+    if not isinstance(name, str):
+        return None
+    name_clean = name.strip().lower()
+    if name_clean.startswith("dr. "):
+        name_clean = name_clean[4:]
+    elif name_clean.startswith("dr "):
+        name_clean = name_clean[3:]
+    matches = []
+    for roster_name in ROSTER:
+        roster_name_clean = roster_name.lower()
+        first_name, last_name = roster_name_clean.split()
+        aliases = {
+            roster_name_clean,
+            f"{first_name[0]}. {last_name}",
+            f"{first_name} {last_name[0]}.",
+        }
+        if name_clean in aliases:
+            matches.append(roster_name)
+    # "D. Rao" fits both Deepak Rao and Divya Rao: guessing would silently give the visit to the
+    # wrong doctor, so an ambiguous name counts as unrecognised
+    return matches[0] if len(matches) == 1 else None
 
 
 def normalise_visit_type(value):
@@ -53,8 +71,16 @@ def normalise_visit_type(value):
     Spellings seen in the export: "New", "NEW", "new visit", "Follow-up", "follow up", "FOLLOW-UP",
     "followup", "Review", "report review", and the clean forms themselves.
     """
-    # TODO(you)
-    raise NotImplementedError
+    if not isinstance(value, str):
+        return None
+    value_clean = value.strip().lower()
+    if value_clean in {"new", "new visit"}:
+        return "new"
+    if value_clean in {"follow-up", "follow up", "followup"}:
+        return "follow-up"
+    if value_clean in {"review", "report review"}:
+        return "review"
+    return None
 
 
 def fix_age(age: pd.Series) -> pd.Series:
@@ -63,8 +89,9 @@ def fix_age(age: pd.Series) -> pd.Series:
 
     This only marks the value as missing. Filling it in is a LEARNED step (features.py, A4 step 7).
     """
-    # TODO(you)
-    raise NotImplementedError
+    age_clean = pd.to_numeric(age, errors="coerce")
+    age_clean = age_clean.mask((age_clean < 0) | (age_clean > 120))
+    return age_clean
 
 
 # ---------------------------------------------------------------- target rules (TODO(you))
@@ -72,11 +99,13 @@ def fix_age(age: pd.Series) -> pd.Series:
 def add_minutes(df: pd.DataFrame) -> pd.Series:
     """The target: consult length in minutes = consult_end - consult_start (A1).
 
-    The timestamp columns arrive as text like "2026-03-02 10:12:30". A missing consult_end must give
-    NaN, not an error. Return a float Series aligned with df.index.
+    The timestamp columns arrive as text like "2026-03-02 10:12:30". A missing or invalid timestamp,
+    or a consult_end earlier than consult_start, gives NaN. Return a float Series aligned with df.index.
     """
-    # TODO(you)
-    raise NotImplementedError
+    consult_start = pd.to_datetime(df["consult_start"], errors="coerce")
+    consult_end = pd.to_datetime(df["consult_end"], errors="coerce")
+    minutes = (consult_end - consult_start).dt.total_seconds() / 60
+    return minutes.mask(minutes < 0)
 
 
 def target_ok(df: pd.DataFrame) -> pd.Series:
@@ -89,8 +118,10 @@ def target_ok(df: pd.DataFrame) -> pd.Series:
 
     `date` is text "YYYY-MM-DD"; strings in this format compare correctly with <= and >=.
     """
-    # TODO(you)
-    raise NotImplementedError
+    minutes = df["minutes"]
+    ok = ~minutes.isna() & minutes.between(MIN_MINUTES, MAX_MINUTES)
+    ok &= ~((df["clinic"] == GLITCH_CLINIC) & df["date"].between(GLITCH_FROM, GLITCH_TO))
+    return ok
 
 
 # ---------------------------------------------------------------- the pipeline (Claude)

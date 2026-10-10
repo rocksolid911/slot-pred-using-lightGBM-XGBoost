@@ -1,0 +1,227 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-funnel">4.1 The cleaning funnel</a>
+  <a href="#lab-split">4.2 Random split vs split by time</a>
+  <a href="#lab-fit">4.3 What may the fit see?</a>
+  <a href="#lab-quiz">4.4 Rule or learned step?</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>Nothing from the future, nothing from after booking</h2>
+    <p>Rules work row by row and may run anywhere. Learned steps compute numbers from many rows, so they are fitted on the training months only. And the split follows time, because the deployed model always predicts visits that haven't happened yet.</p>
+  </div>
+
+  <div class="lab" id="lab-funnel">
+    <div class="lab-head"><span class="tag">Lab 4.1</span><h3>From 43,922 raw rows to the three splits</h3></div>
+    <p class="say">Each step of <code>clean()</code> removes rows. A row with two problems is counted once, under the first step that catches it. Switch views to see why the funnel doesn't match the A3 problem log exactly.</p>
+    <div class="seg" role="group" aria-label="How to count">
+      <button type="button" data-count="first" aria-pressed="true">Funnel: first reason wins</button>
+      <button type="button" data-count="alone" aria-pressed="false">A3 view: each problem on its own</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Step</th><th class="num">Rows removed</th><th style="width:40%">Share of raw rows</th></tr></thead>
+      <tbody id="fnTable"></tbody>
+    </table></div>
+    <p class="say" id="fnSay"></p>
+    <div class="chart short"><canvas id="fnChart" aria-label="Clean visits per month, coloured by split"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-split">
+    <div class="lab-head"><span class="tag">Lab 4.2</span><h3>Drift: which split notices?</h3></div>
+    <p class="say">4,800 simulated Dermatology visits, 600 a month, January to August. From 1 July every visit gets extra minutes (the drift, A2). The "model" is the median of its training rows. Compare a split by time with a random 80/20 split.</p>
+    <div class="controls">
+      <div class="ctl"><label for="spDrift">Extra minutes from July <output id="spDriftOut"></output></label><input type="range" id="spDrift" min="0" max="6" step="0.5" value="3"></div>
+      <div class="ctl"><label for="spFrac">Random split: share of rows in test <output id="spFracOut"></output></label><input type="range" id="spFrac" min="0.1" max="0.5" step="0.05" value="0.2"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Time split: Jul–Aug bias</span><strong id="spTime"></strong></div>
+      <div class="stat"><span>Random split: bias on its test rows</span><strong id="spRand"></strong></div>
+      <div class="stat"><span>Same random model, Jul–Aug only</span><strong id="spRandJA"></strong></div>
+    </div>
+    <div class="formula" id="spFormula"></div>
+    <p class="say" id="spSay"></p>
+    <div class="chart"><canvas id="spChart" aria-label="Monthly median visit length and each split's prediction"></canvas></div>
+    <p class="say" id="spReal"></p>
+  </div>
+
+  <div class="lab" id="lab-fit">
+    <div class="lab-head"><span class="tag">Lab 4.3</span><h3>What is the learned step allowed to see?</h3></div>
+    <p class="say">A learned step, here a table of median minutes, is fitted on some months and scored on the test months (July–August). These are the real numbers from your export. Choose what the fit sees.</p>
+    <div class="controls">
+      <div class="ctl"><span class="lbl">Fit on</span>
+        <div class="seg" role="group" aria-label="Rows the fit sees">
+          <button type="button" data-fit="train" aria-pressed="true">Jan–May (train)</button>
+          <button type="button" data-fit="trainValid" aria-pressed="false">Jan–Jun (train + valid)</button>
+          <button type="button" data-fit="all" aria-pressed="false">Jan–Aug (includes test)</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="lbl">Median per</span>
+        <div class="seg" role="group" aria-label="Grouping key">
+          <button type="button" data-key="dept" aria-pressed="false">department × visit type</button>
+          <button type="button" data-key="doctor" aria-pressed="true">doctor × visit type</button>
+        </div>
+      </div>
+    </div>
+    <div class="months" id="ftMonths" aria-label="Months the fit sees"></div>
+    <div class="stats">
+      <div class="stat"><span>Test MAE (min)</span><strong id="ftMae"></strong></div>
+      <div class="stat"><span>Dermatology bias</span><strong id="ftBias"></strong></div>
+      <div class="stat"><span>Age median it learns</span><strong id="ftAge"></strong></div>
+    </div>
+    <p class="say" id="ftSay"></p>
+  </div>
+
+  <div class="lab" id="lab-quiz">
+    <div class="lab-head"><span class="tag">Lab 4.4</span><h3>Rule or learned step?</h3></div>
+    <p class="say">The test from the lesson: would the result for row 5 change if you deleted row 9,000? If yes, it's learned, and it may only be fitted on the training rows. Sort each step.</p>
+    <div class="stats"><div class="stat"><span>Score</span><strong id="qzScore">0 / 0</strong></div></div>
+    <div class="quiz" id="qzList"></div>
+  </div>
+</section>
+
+<style>
+.barcell { display: flex; align-items: center; gap: 8px; }
+.bar { flex: 0 0 auto; height: 10px; border-radius: 3px; background: var(--accent); min-width: 2px; }
+.bar.late { background: var(--late); }
+.months { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.months div { border: 1px solid var(--line); border-radius: 6px; padding: 6px 2px; text-align: center; font: 500 12px var(--f-mono); color: var(--muted); display: grid; gap: 2px; }
+.months div.seen { background: var(--soft); color: var(--ink); border-color: var(--accent); }
+.months div.seen.leak { background: transparent; border-color: var(--late); color: var(--late); }
+.months span { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.quiz { display: grid; gap: .5rem; }
+.qz { border: 1px solid var(--line); border-radius: 8px; padding: .65rem .8rem; display: grid; gap: .45rem; }
+.qz .q { display: flex; justify-content: space-between; gap: .75rem; align-items: center; flex-wrap: wrap; }
+.qz .fb { font-size: 14px; color: var(--muted); }
+.qz.right { border-color: var(--accent); }
+.qz.wrong { border-color: var(--late); }
+.qz.right .fb b { color: var(--accent); }
+.qz.wrong .fb b { color: var(--late); }
+</style>
+
+<script>
+const P = D.prep;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
+const signed = (x, d = 2) => (x >= 0 ? "+" : "") + f(x, d);
+
+/* Lab 4.1: the funnel */
+const FN_ROWS = [["dup", "1 Exact duplicates"], ["labels", "2 Unrecognised doctor / visit type"], ["missing", "5a consult_end missing"],
+  ["whitefield", "5b Whitefield March–April"], ["range", "5c Under 1 or over 120 minutes"]];
+let countMode = "first";
+document.querySelectorAll("[data-count]").forEach(b => b.addEventListener("click", () => {
+  countMode = b.dataset.count; document.querySelectorAll("[data-count]").forEach(x => x.setAttribute("aria-pressed", x === b)); updFunnel();
+}));
+const fnChart = new Chart($("fnChart"), { type: "bar", data: { labels: MONTHS, datasets: [] }, options: {
+  responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { labels: { boxWidth: 12, font: { family: "IBM Plex Sans", size: 12 } } } },
+  scales: { x: { stacked: true, title: { display: true, text: "month (2026)" } }, y: { stacked: true, title: { display: true, text: "clean visits" } } } } });
+function updFunnel() {
+  const src = countMode === "first" ? P.removed : { ...P.alone, labels: P.removed.labels };
+  const max = Math.max(...FN_ROWS.map(([k]) => src[k]));
+  const total = FN_ROWS.reduce((a, [k]) => a + src[k], 0);
+  $("fnTable").innerHTML = FN_ROWS.map(([k, name]) => {
+    const differs = countMode === "alone" && P.alone[k] !== undefined && P.alone[k] !== P.removed[k];
+    return `<tr><td>${name}</td><td class="num">${src[k].toLocaleString()}${differs ? ` <span class="sub">(funnel: ${P.removed[k].toLocaleString()})</span>` : ""}</td>` +
+      `<td><div class="barcell"><div class="bar${k === "whitefield" ? " late" : ""}" style="flex-basis:${max ? 80 * src[k] / max : 0}%"></div><span class="sub">${pct(src[k] / P.raw, 2)}</span></div></td></tr>`;
+  }).join("") + `<tr class="total"><td>${countMode === "first" ? "Removed in total" : "Sum of the counts"}</td><td class="num">${total.toLocaleString()}</td><td>${countMode === "first" ? `${P.raw.toLocaleString()} → <b>${P.clean.toLocaleString()}</b> clean visits` : `double-counts ${(total - (P.raw - P.clean)).toLocaleString()} rows`}</td></tr>`;
+  $("fnSay").innerHTML = countMode === "first"
+    ? `Every removed row is counted once, so the steps add up exactly: ${P.raw.toLocaleString()} − ${(P.raw - P.clean).toLocaleString()} = <b>${P.clean.toLocaleString()}</b>. Then the split by time cuts the clean visits into train, valid and test (chart).`
+    : `Counted on their own, the problems overlap: <b>9</b> Whitefield rows were duplicates and <b>4</b> had no <code>consult_end</code> (1,753 → 1,740); <b>3</b> out-of-range rows were duplicates and <b>29</b> sat in the Whitefield window (669 → 637). That's exactly your reconciliation in the notebook.`;
+  const C = { train: css("--accent"), valid: css("--idle"), test: css("--late") };
+  fnChart.data.datasets = ["train", "valid", "test"].map(s => ({ label: `${s} (${P.perMonth[s].reduce((a, b) => a + b).toLocaleString()})`, data: P.perMonth[s], backgroundColor: hexA(C[s], 0.75), borderWidth: 0 }));
+  paint(fnChart);
+}
+registerLab(updFunnel);
+
+/* Lab 4.2: random split vs split by time (simulated Dermatology) */
+function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const g = rng(4), SIG = D.sigma, BASE = 11, DERM = [];
+for (let mo = 0; mo < 8; mo++) for (let i = 0; i < 600; i++) {
+  const u1 = g() || 1e-9, u2 = g(), z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  DERM.push({ mo, noise: Math.exp(-SIG * SIG / 2 + SIG * z), u: g() });
+}
+const median = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+const meanOf = a => a.reduce((x, y) => x + y, 0) / a.length;
+const spChart = makeChart("spChart", "month (2026)", "minutes", { xmin: -0.5, xmax: 7.5, ymin: 0 });
+spChart.options.scales.x.ticks = { callback: v => Number.isInteger(v) ? MONTHS[v] : "", stepSize: 1 };
+bindOut("spDrift", v => v ? "+" + f(v, 1) + " min" : "none"); bindOut("spFrac", v => pct(v));
+registerLab(function updSplit() {
+  const drift = +$("spDrift").value, frac = +$("spFrac").value;
+  const y = v => (BASE + (v.mo >= 6 ? drift : 0)) * v.noise;
+  const timeTrain = DERM.filter(v => v.mo <= 4).map(y), future = DERM.filter(v => v.mo >= 6);
+  const pT = median(timeTrain);
+  const rTrain = DERM.filter(v => v.u >= frac), rTest = DERM.filter(v => v.u < frac), pR = median(rTrain.map(y));
+  const bias = (rows, p) => meanOf(rows.map(v => y(v) - p));
+  const bT = bias(future, pT), bR = bias(rTest, pR), bRJ = bias(rTest.filter(v => v.mo >= 6), pR);
+  const shareFuture = rTest.filter(v => v.mo >= 6).length / rTest.length;
+  $("spTime").textContent = signed(bT) + " min"; $("spRand").textContent = signed(bR) + " min"; $("spRandJA").textContent = signed(bRJ) + " min";
+  tex($("spFormula"), R`\underbrace{${f(bR, 2)}}_{\text{random test}} \approx ${f(1 - shareFuture, 2)}\times\underbrace{${f(bias(rTest.filter(v => v.mo < 6), pR), 2)}}_{\text{Jan–Jun rows}} + ${f(shareFuture, 2)}\times\underbrace{${f(bRJ, 2)}}_{\text{Jul–Aug rows}}`);
+  $("spSay").innerHTML = (drift === 0
+    ? `With no drift all three biases are small and similar, about <b>+${f(bT, 1)}</b>: the median sits below the mean of a right-skewed distribution (A2). Here a random split would do no harm.`
+    : `The split by time shows what deployment will feel like: the average July–August visit runs <b>${signed(bT, 1)} min</b> longer than predicted. The random split reports only <b>${signed(bR, 1)}</b>, because ${pct(1 - shareFuture)} of its test rows come from the calm months before the drift (where its drift-inflated median even over-predicts a little). ` +
+      `Scored on July–August alone, the very same model is <b>${signed(bRJ, 1)}</b>: a little better than the time split only because some July–August rows leaked into its training data.`);
+  const monthly = [...Array(8).keys()].map(mo => ({ x: mo, y: median(DERM.filter(v => v.mo === mo).map(y)) }));
+  const A = css("--accent"), L = css("--late"), I = css("--idle"), M = css("--muted");
+  const top = Math.max(...monthly.map(p => p.y)) * 1.35;
+  spChart.data.datasets = [
+    area("_test months", [{ x: 5.5, y: top }, { x: 7.5, y: top }], L, 0.08),
+    line("Actual median per month", monthly, M, { pointRadius: 3 }),
+    line("Time-split prediction (fit Jan–May)", [{ x: -0.5, y: pT }, { x: 7.5, y: pT }], A, { borderDash: [6, 4] }),
+    line("Random-split prediction (fit on a mix of all months)", [{ x: -0.5, y: pR }, { x: 7.5, y: pR }], I, { borderDash: [2, 3] }),
+  ];
+  spChart.options.scales.y.max = top;
+  paint(spChart);
+  const s = P.split;
+  $("spReal").innerHTML = `<b>Your notebook, real export:</b> Dermatology bias ${signed(s.time.dermBias)} (split by time), ${signed(s.random.dermBias)} (random), ${signed(s.randomJulAug.dermBias)} (random model on July–August). Overall MAE ${f(s.time.mae)} vs ${f(s.random.mae)}: the random split looks better and is wrong about the future.`;
+}, ["spDrift", "spFrac"]);
+
+/* Lab 4.3: what may the fit see? */
+let fitOn = "train", fitKey = "doctor";
+document.querySelectorAll("[data-fit]").forEach(b => b.addEventListener("click", () => {
+  fitOn = b.dataset.fit; document.querySelectorAll("[data-fit]").forEach(x => x.setAttribute("aria-pressed", x === b)); updFit();
+}));
+document.querySelectorAll("[data-key]").forEach(b => b.addEventListener("click", () => {
+  fitKey = b.dataset.key; document.querySelectorAll("[data-key]").forEach(x => x.setAttribute("aria-pressed", x === b)); updFit();
+}));
+const LAST = { train: 4, trainValid: 5, all: 7 }, ROLE = ["train", "train", "train", "train", "train", "valid", "test", "test"];
+function updFit() {
+  $("ftMonths").innerHTML = MONTHS.map((m, i) => `<div class="${i <= LAST[fitOn] ? "seen" : ""}${i <= LAST[fitOn] && ROLE[i] === "test" ? " leak" : ""}">${m}<span>${ROLE[i]}</span></div>`).join("");
+  const r = P.leak[fitOn][fitKey], honest = P.leak.train[fitKey];
+  $("ftMae").textContent = f(r.mae); $("ftBias").textContent = signed(r.dermBias); $("ftAge").textContent = f(P.leak[fitOn].ageMedian, 0);
+  $("ftSay").innerHTML = fitOn === "train"
+    ? `<b>Honest.</b> The fit sees only January–May. Test MAE ${f(r.mae)} is what you should expect after deployment; the Dermatology bias of ${signed(r.dermBias)} is the July drift the model hasn't seen.`
+    : fitOn === "trainValid"
+    ? `<b>Allowed.</b> June is validation, not test. Once settings are chosen, refitting on train + valid is normal practice: the test months stay unseen, so the score is still honest (MAE ${f(r.mae)}). June is before the drift, so it doesn't help Dermatology.`
+    : `<b>Leak.</b> The fit has seen the answers for the test months. MAE drops from ${f(honest.mae)} to <b>${f(r.mae)}</b> and the Dermatology bias from ${signed(honest.dermBias)} to ${signed(r.dermBias)}, but no deployed model can see the future, so the gain is an illusion. ` +
+      `The age median doesn't move (${f(P.leak.all.ageMedian, 0)}): statistics of the <i>target</i> leak much more than statistics of an input.`;
+}
+registerLab(updFit);
+
+/* Lab 4.4: rule or learned step? */
+const QUIZ = [
+  ["Drop exact duplicate rows", "rule", "Each row is compared with its own copy; no statistic is computed. Runs before the split."],
+  ["Map \"DR SANJAY PATIL\" to Sanjay Patil", "rule", "Fixed mapping from the roster. A feature rule, so the API runs it too."],
+  ["Turn age 999 into missing", "rule", "A fixed constant. A feature rule, also at prediction time."],
+  ["Keep targets between 1 and 120 minutes", "rule", "Domain knowledge, not data. A target rule: never at prediction time."],
+  ["Drop visits above the 99th percentile of minutes", "learned", "The percentile comes from many rows: fit on train only. Also a target step."],
+  ["Fill missing age with the median age", "learned", "The median is learned from training rows (42), then applied unchanged everywhere."],
+  ["The list of known doctors for the category column", "learned", "Learned from training rows; a doctor first seen later becomes 'unknown'."],
+  ["Weekday from the visit date", "rule", "Each row's own date decides it. Safe anywhere, including the API."],
+  ["Median minutes per doctor, used as a feature", "learned", "Computed from the target of many rows: the most dangerous kind of leak if fitted on all months."],
+  ["Log-IQR fences for flagging long visits", "learned", "Q1 and Q3 come from the data: fit on train only."],
+];
+const answers = {};
+$("qzList").innerHTML = QUIZ.map(([q], i) => `<div class="qz" id="qz${i}"><div class="q"><span>${q}</span><span class="seg" role="group" aria-label="${q}">` +
+  `<button type="button" data-q="${i}" data-a="rule" aria-pressed="false">Rule</button><button type="button" data-q="${i}" data-a="learned" aria-pressed="false">Learned</button></span></div><div class="fb" id="qzFb${i}" hidden></div></div>`).join("");
+document.querySelectorAll("[data-q]").forEach(b => b.addEventListener("click", () => {
+  const i = +b.dataset.q, [, right, why] = QUIZ[i];
+  answers[i] = b.dataset.a;
+  document.querySelectorAll(`[data-q="${i}"]`).forEach(x => x.setAttribute("aria-pressed", x === b));
+  const ok = answers[i] === right, box = $("qz" + i), fb = $("qzFb" + i);
+  box.classList.toggle("right", ok); box.classList.toggle("wrong", !ok);
+  fb.hidden = false; fb.innerHTML = `<b>${ok ? "Right" : "Not quite"}: ${right === "rule" ? "a rule" : "a learned step"}.</b> ${why}`;
+  const done = Object.keys(answers).length, score = Object.entries(answers).filter(([k, a]) => QUIZ[k][1] === a).length;
+  $("qzScore").textContent = `${score} / ${done}${done === QUIZ.length ? " — all sorted" : ""}`;
+}));
+
+startLabs();
+</script>

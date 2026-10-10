@@ -44,4 +44,10 @@ $$\text{IQR}=Q_3-Q_1,\qquad \text{flag outside }\big[Q_1-1.5\,\text{IQR},\;Q_3+1
 
 **When dropping rows biases a model** ([A3](A03-eda.md)): MCAR, never; MAR (missingness depends on observed columns), the overall mix shifts but $P(y\mid x)$ stays right; MNAR (depends on $y$ itself), biased.
 
+**Why split by time** ([A4](A04-prepare.md)): the test score should estimate future error; a random split estimates it on a mix of months, which differs from the future whenever the data drifts.
+$$\text{target}=\mathbb E_{(x,y)\sim P_{\text{future}}}\big[L(y,\hat y)\big],\qquad P_{\text{mix}}=\textstyle\sum_m w_m P_m\;\neq\;P_{\text{future}}\text{ under drift}$$
+
+**Fill + flag, fitted on train** ([A4](A04-prepare.md))
+$$\text{age}^{\text{filled}}_i=\begin{cases}\text{age}_i & \text{known}\ \operatorname{median}(\text{age}_{\text{train}}) & \text{missing}\end{cases},\qquad \text{age\_missing}_i=\mathbb 1[\text{age}_i\text{ missing}]$$
+
 ## Track B
