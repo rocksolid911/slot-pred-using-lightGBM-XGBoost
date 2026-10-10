@@ -1,6 +1,6 @@
 # A5 · Baselines: the score to beat (lifecycle stage 4: Baseline)
 
-> **Date:** 2026-10-10 · **Notebook:** [notebooks/A05_baselines.ipynb](../notebooks/A05_baselines.ipynb) · **Code:** [metrics.py](../slotpred/metrics.py), [baselines.py](../slotpred/baselines.py) · **Git tag:** `lesson-A5`
+> **Date:** 2026-10-10 · **Notebook:** [notebooks/A05_baselines.ipynb](../notebooks/A05_baselines.ipynb) · **Code:** [metrics.py](../slotpred/metrics.py), [baselines.py](../slotpred/baselines.py) · **Lab page:** [A5 Baselines Lab](https://claude.ai/artifact/CgLBFQoQyi2qeuuAf75qnv) · **Git tag:** `lesson-A5`
 
 ## Where this fits (mind map)
 
@@ -92,10 +92,49 @@ Take the Cardiology new visits from train (1,302 visits, P80 = 30.2 min). Draw a
 | Leaderboard, box-size ladder, rounding table | [A05_baselines.ipynb](../notebooks/A05_baselines.ipynb) | me |
 
 ## Our results
-<!-- From your notebook: the leaderboard (all three q), the box-size ladder, the rounding table. -->
+
+All fitted on train (Jan–May, 24,818 visits), scored on valid (June, 5,515 visits).
+
+### Leaderboard: score (pinball loss, lower is better)
+
+| Method | q = 0.67 | q = 0.75 | q = 0.80 |
+|---|---|---|---|
+| B0 fixed 15 | 2.639 | 2.498 | 2.410 |
+| B1 one number | 2.635 | 2.450 | 2.244 |
+| B2 department + visit type | 1.700 | 1.556 | 1.404 |
+| B3 doctor + visit type (backoff to B2) | **1.628** | **1.489** | **1.349** |
+| Oracle (floor, uses hidden truth) | 1.381 | 1.253 | 1.130 |
+
+- Best real method: B3. At q = 0.8 it is 0.22 above the floor; that gap is LightGBM's target in A6.
+- B0's coverage is 0.688 at every q: **today's 15 minutes is secretly a P67**.
+- B1's coverage is right (0.794 at q = 0.8) but its score is bad: right on average, wrong for each kind of visit.
+
+### Box-size ladder (q = 0.8)
+
+| Boxes by | Boxes | Median visits per box | Score, no backoff | Score, backoff (min 30) |
+|---|---|---|---|---|
+| department + visit type | 24 | 991 | 1.404 | 1.404 |
+| doctor + visit type | 60 | 438.5 | 1.349 | 1.349 |
+| + clinic | 120 | 214 | **1.335** | 1.335 |
+| + weekday | 720 | 31 | 1.375 | 1.378 |
+| + hour | 6,078 | 4 | **1.671** | 1.404 (= B2) |
+
+### Rounding up to 5 minutes (B2)
+
+| q | Coverage (raw P-point) | On time (booked slot) | Late min / visit | Idle min / visit |
+|---|---|---|---|---|
+| 0.67 | 0.683 | **0.803** | 0.75 | 4.29 |
+| 0.75 | 0.749 | 0.866 | 0.51 | 5.59 |
+| 0.80 | 0.794 | 0.885 | 0.39 | 6.13 |
+
+Rounding adds about 9–12 points of on-time share. If the PO wants about 80% on time *as booked*, q = 0.67 already gets there. The PO decides in A8.
 
 ## Gotchas
 - Quick check: idle minutes are slot − actual (20 − 12 = 8), not the visit length. Score = 8 × 0.2 = 1.6.
+- `y - pred` fails on plain Python lists; convert with `np.asarray(..., float)` first.
+- **Indentation decides how often a line runs.** The oracle row sat inside the per-method loop, so it was added 4 times per q.
+- **Don't reuse a results list for a different table.** Appending the ladder rows to the leaderboard's `rows` put NaN rows into `baselines_valid.csv`, the file A6 reads.
+- Backoff protects against tiny boxes but doesn't guarantee a gain: at the weekday level it was slightly worse (1.378 vs 1.375).
 
 ## Self-check
 
@@ -120,7 +159,23 @@ From the PO's late-vs-idle ratio (A1): q = late cost ÷ (late cost + idle cost).
 </details>
 
 ## In my words
-<!-- Written by you, not Claude: 3 lines, as if teaching a friend. -->
+baseline is required for :
+- to compare the models score to something for better idea how model works and also to check if pipeline works fine its not when a nice model was beaten by baseline also if the model fails for some reason we can use this as a fallback
+### Why late × q + idle × (1 − q), and where q comes from
 
+- This is the pinball loss. A late minute (slot too short) and an idle minute (slot too long) don't cost the same, and q sets the exchange rate.
+-At q = 0.8, a late minute costs 0.8 and an idle minute 0.2, so lateness is four times as costly. The best single number under this score is the 80th percentile of the durations, a P80.
+-  slot 20, a 30-min visit is 10 late, so 10 × 0.8 = 8.0. A 12-min visit leaves 8 idle, so 8 × 0.2 = 1.6. The average is 4.8.
+- q is a business setting, not something the model chooses. It comes from the PO (A1), who picks 0.67, 0.75 or 0.80 depending on how much a patient waiting counts against an empty slot. All three are computed, and the PO picks in A8.
+
+### why not make the boxes samll as possible
+- smaller boxes are more specific, but each holds fewer visits, so its P-point is estimated from less data and becomes noisy.
+- In ladder the loss improved until about 214 visits per box (1.335), then worsened: 1.375 at 31 visits per box and 1.671 at 4 visits per box.
+- Backoff (min_n=30) says that if a box has fewer than 30 visits, use the parent's number (B2) instead. At the finest level this brought the loss from 1.671 back to 1.404, which is B2's score.
+
+### what LightGBM does diffrently
+- B2 uses boxes that we choose by hand (department × visit type) and gives one fixed number per box.
+- LightGBM also builds boxes, but it chooses them itself from all the columns. It splits on whichever features and thresholds reduce the loss most, such as doctor, hour, age or weekday.
+- It can therefore find useful boxes that a person would not think of, while using the same pinball loss for the target quantile q.
 ## New terms
 baseline, pinball loss, coverage, booked slot, box (group), backoff, oracle (floor), standard deviation of an estimate

@@ -74,8 +74,12 @@ class GroupQuantile:
         If self.parent is not None, fit it on the same `train` too.
         Return self.
         """
-        # TODO(you)
-        raise NotImplementedError
+        self.table_ = train.groupby(self.keys)[TARGET].quantile(self.q)
+        self.counts_ = train.groupby(self.keys).size()
+        self.fallback_ = float(train[TARGET].quantile(self.q))
+        if self.parent is not None:
+            self.parent.fit(train)
+        return self
 
     def predict(self, df):
         """TODO(you). One prediction per row of df, a numpy array in df's row order.
@@ -86,8 +90,11 @@ class GroupQuantile:
         3. Untrusted rows get self.parent.predict(...) if there is a parent, else self.fallback_.
            (simplest: compute the parent's prediction for all rows, then pick with np.where)
         """
-        # TODO(you)
-        raise NotImplementedError
+        parent_pred = self.parent.predict(df) if self.parent is not None else self.fallback_
+        joined = df.join(self.table_.rename("p"), on=self.keys)
+        counts = df.join(self.counts_.rename("n"), on=self.keys)
+        trusted = counts["n"] >= self.min_n
+        return np.where(trusted, joined["p"], parent_pred)
 
 
 def oracle_quantile(expected, q, sigma):

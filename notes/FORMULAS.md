@@ -50,4 +50,10 @@ $$\text{target}=\mathbb E_{(x,y)\sim P_{\text{future}}}\big[L(y,\hat y)\big],\qq
 **Fill + flag, fitted on train** ([A4](A04-prepare.md))
 $$\text{age}^{\text{filled}}_i=\begin{cases}\text{age}_i & \text{known}\ \operatorname{median}(\text{age}_{\text{train}}) & \text{missing}\end{cases},\qquad \text{age\_missing}_i=\mathbb 1[\text{age}_i\text{ missing}]$$
 
+**Pinball loss as the score** ([A5](A05-baselines.md)): late minutes cost $q$, idle minutes cost $1-q$; averaged over the $n$ scored visits. Lower is better.
+$$\text{score}=\frac1n\sum_{i=1}^{n}\Big(q\cdot\max(y_i-p_i,0)+(1-q)\cdot\max(p_i-y_i,0)\Big)$$
+
+**How shaky a box's q-point is** ([A5](A05-baselines.md)): the jumpiness shrinks with the square root of the visits in the box (4× the visits → half the jump).
+$$\text{SD}(\hat Q_q)\;\propto\;\frac{1}{\sqrt n}$$
+
 ## Track B

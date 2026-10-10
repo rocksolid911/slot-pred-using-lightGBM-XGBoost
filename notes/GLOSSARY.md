@@ -5,7 +5,10 @@ One line per term, plus the lesson where it is explained properly. Keep the list
 | Term | Meaning | Lesson |
 |---|---|---|
 | Additive effect | A factor that adds fixed minutes whatever the base (interpreter +4) | [A2](A02-simulator.md) |
+| Backoff | If a box has too few training visits (or none, like a new doctor), use the bigger box it belongs to instead | [A5](A05-baselines.md) |
 | Baseline | The simple rule a model must beat to be worth deploying (here: a fixed 15-min slot) | [A1](A01-framing.md) |
+| Booked slot | The predicted P-point rounded **up** to the 5-minute grid; what the clinic actually books (16.6 → 20) | [A5](A05-baselines.md) |
+| Box (group) | One combination of columns, e.g. (Dermatology, follow-up); a lookup-table baseline books one q-point per box | [A5](A05-baselines.md) |
 | Cold start | Predicting for something with no history (a new doctor); the model can't have learned its pattern | [A2](A02-simulator.md) |
 | Conditional quantile | A quantile that depends on the inputs: the P80 *for this doctor, visit type, …* | [A1](A01-framing.md) |
 | Coverage | Share of visits finishing within the predicted P80; should be ≈ 0.80. Gameable on its own | [A1](A01-framing.md) |
@@ -19,6 +22,7 @@ One line per term, plus the lesson where it is explained properly. Keep the list
 | Imputation | Filling in a missing value (here: the training-row median age); a learned step | [A4](A04-prepare.md) |
 | IQR fences | Q1 − 1.5·IQR and Q3 + 1.5·IQR; values outside are "unusual". Use log(x) for skewed data | [A3](A03-eda.md) |
 | Irreducible error | Error even a perfect model has, because of the noise; the oracle's score | [A2](A02-simulator.md) |
+| Leaderboard | A table of every method's scores on the same split (here June), so they can be compared fairly | [A5](A05-baselines.md) |
 | Leakage | Using information that won't exist at prediction time; looks great in tests, fails in production | [A1](A01-framing.md) |
 | Learned step | A preparation step whose output depends on statistics of many rows (a median, a percentile, a category list); fit it on the training rows only | [A4](A04-prepare.md) |
 | Log-normal | e^Z where Z is normal: always positive, right-skewed | [A2](A02-simulator.md) |
@@ -29,6 +33,7 @@ One line per term, plus the lesson where it is explained properly. Keep the list
 | MNAR | Missing because of the value itself (long visits never closed); dropping biases the model | [A3](A03-eda.md) |
 | Multiplicative effect | A factor that scales the whole time (slow doctor ×1.2) | [A2](A02-simulator.md) |
 | Noise | The random part of the outcome that no feature can explain | [A2](A02-simulator.md) |
+| Oracle (floor) | The best possible score, computed from the simulator's hidden expected minutes; only for scoring, never a feature | [A5](A05-baselines.md) |
 | Oracle | A model that knows the hidden rule exactly but not the noise; the best possible score | [A2](A02-simulator.md) |
 | P50 / median | Value that half the outcomes fall within: the typical visit | [A1](A01-framing.md) |
 | P80 | Value that 80% of outcomes fall within: the safe slot when overrun is 4× worse than idle | [A1](A01-framing.md) |

@@ -41,8 +41,11 @@ LESSONS = [
          name="Cleaning, features, time split", stage="Stage 3 · Prepare", note="notes/A04-prepare.md",
          summary="Rules run anywhere, learned steps are fitted on train only, and the split follows time.",
          labs=["Cleaning funnel", "Random vs time split", "What may the fit see?", "Rule or learned?"]),
-    dict(id="A5", status="now", name="Baselines", stage="Stage 4 · Baseline", summary="Fixed 15 minutes and department × visit-type medians: the bar to beat."),
-    dict(id="A6", name="LightGBM quantile model", stage="Stage 5 · Train", summary="Gradient boosting with the pinball loss, one model per q."),
+    dict(id="A5", slug="A05-baselines", src="A05.html", status="done", data=True, title="A5 Baselines Lab",
+         name="Baselines", stage="Stage 4 · Baseline", note="notes/A05-baselines.md",
+         summary="The score to beat: pinball loss, four simple baselines on June, why tiny boxes are luck, and rounding to the grid.",
+         labs=["The score", "June leaderboard", "Box size", "Rounding"]),
+    dict(id="A6", status="now", name="LightGBM quantile model", stage="Stage 5 · Train", summary="Gradient boosting with the pinball loss, one model per q."),
     dict(id="A7", name="XGBoost comparison", stage="Stage 5 · Train", summary="Same idea, different library; keep the winner."),
     dict(id="A8", name="Evaluation", stage="Stage 6 · Evaluate", summary="Slices, calibration, error analysis, and the PO's trade-off table."),
     dict(id="A9", name="Tuning, SHAP, fairness", stage="Stage 7 · Select", summary="Did the model find the hidden rule? Model card."),
@@ -110,6 +113,60 @@ def slot_data():
                  "hist": histogram(test["expected_minutes"]), "cells": cells},
         "eda": eda_data(world, raw),
         "prep": prep_data(),
+        "base": baseline_data(),
+    }
+
+
+def baseline_data():
+    """A5: the June leaderboard, the box-size ladder, and per-visit data for the rounding lab."""
+    import pandas as pd
+
+    from slotpred.baselines import FixedSlot, GlobalQuantile, GroupQuantile, oracle_quantile
+    from slotpred.config import DATA, Q_CANDIDATES
+    from slotpred.features import add_time_features
+    from slotpred.metrics import evaluate, pinball_loss
+    from slotpred.prepare import load_prepared
+    from slotpred.world import NOISE_SIGMA
+
+    splits, _ = load_prepared()
+    train, valid = add_time_features(splits["train"]), add_time_features(splits["valid"])
+    y = valid["minutes"].to_numpy()
+    truth = pd.read_csv(DATA / "_hidden_truth.csv")
+    expected = valid[["appointment_id"]].merge(truth, on="appointment_id", how="left")["expected_minutes"].to_numpy()
+    dv = ["department", "visit_type"]
+
+    board, b2pred = [], {}
+    for q in Q_CANDIDATES:
+        methods = {"B0": FixedSlot(15), "B1": GlobalQuantile(q), "B2": GroupQuantile(dv, q),
+                   "B3": GroupQuantile(["doctor", "visit_type"], q, min_n=30, parent=GroupQuantile(dv, q))}
+        for name, m in methods.items():
+            pred = m.fit(train).predict(valid)
+            board.append(evaluate(y, pred, q, name))
+            if name == "B2":
+                b2pred[str(q)] = m.table_.round(3).to_dict()
+        board.append(evaluate(y, oracle_quantile(expected, q, NOISE_SIGMA), q, "Oracle"))
+
+    ladder = []
+    for keys in (dv, ["doctor", "visit_type"], ["doctor", "visit_type", "clinic"],
+                 ["doctor", "visit_type", "clinic", "weekday"], ["doctor", "visit_type", "clinic", "weekday", "hour"]):
+        row = {"keys": keys}
+        for min_n in (1, 30):
+            m = GroupQuantile(keys, 0.8, min_n=min_n, parent=GroupQuantile(dv, 0.8)).fit(train)
+            row[f"score{min_n}"] = round(pinball_loss(y, m.predict(valid), 0.8), 3)
+            row["boxes"], row["median"] = int(len(m.table_)), float(m.counts_.median())
+        ladder.append(row)
+
+    boxes = sorted(b2pred[str(Q_CANDIDATES[0])])
+    box_index = {b: i for i, b in enumerate(boxes)}
+    cardio = train[(train["department"] == "Cardiology") & (train["visit_type"] == "new")]["minutes"]
+    return {
+        "board": [{k: (round(v, 4) if isinstance(v, float) else v) for k, v in r.items()} for r in board],
+        "ladder": ladder,
+        "boxes": [list(b) for b in boxes],
+        "b2": {q: [t[b] for b in boxes] for q, t in b2pred.items()},
+        "validY": [round(float(v), 2) for v in y],
+        "validBox": [box_index[(d, v)] for d, v in zip(valid["department"], valid["visit_type"])],
+        "cardio": [round(float(v), 2) for v in cardio],
     }
 
 

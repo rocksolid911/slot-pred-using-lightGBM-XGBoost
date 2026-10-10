@@ -27,15 +27,17 @@ def pinball_loss(y, pred, q):
     Example, q = 0.8, pred = 20: a 30-min visit scores 10 x 0.8 = 8.0; a 12-min visit scores 8 x 0.2 = 1.6;
     the average of the two is 4.8.
     """
-    # TODO(you)
-    raise NotImplementedError
+    y, pred = np.asarray(y, float), np.asarray(pred, float)
+    late = np.maximum(y - pred, 0)
+    idle = np.maximum(pred - y, 0)
+    return np.mean(late * q + idle * (1 - q))
 
 
 def coverage(y, pred):
     """The share of visits that finished within their prediction (y <= pred), as a float between 0 and 1.
     For a well-made P80 it should be close to 0.80."""
-    # TODO(you)
-    raise NotImplementedError
+    y, pred = np.asarray(y, float), np.asarray(pred, float)
+    return np.mean(y <= pred)
 
 
 def to_slot(pred, grid=SLOT_GRID):
@@ -45,8 +47,8 @@ def to_slot(pred, grid=SLOT_GRID):
     Watch out: 15.000000001 from floating-point arithmetic should still book 15, not 20.
     Hint: np.ceil(pred / grid - 1e-9) * grid, then np.maximum with grid.
     """
-    # TODO(you)
-    raise NotImplementedError
+    slot = np.asarray(pred, float)
+    return np.maximum(np.ceil(slot / grid - 1e-9) * grid, grid)
 
 
 def booked_metrics(y, slot):
@@ -57,8 +59,15 @@ def booked_metrics(y, slot):
         idle_min     average idle minutes per visit   (visits that ran late count as 0)
         slot_min     average booked slot length
     """
-    # TODO(you)
-    raise NotImplementedError
+    y, slot = np.asarray(y, float), np.asarray(slot, float)
+    late = np.maximum(y - slot, 0)
+    idle = np.maximum(slot - y, 0)
+    return {
+        "late_share": np.mean(y > slot),
+        "late_min": np.mean(late),
+        "idle_min": np.mean(idle),
+        "slot_min": np.mean(slot),
+    }
 
 
 # ---------------------------------------------------------------- Claude
