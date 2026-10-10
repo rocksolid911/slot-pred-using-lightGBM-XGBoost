@@ -1,6 +1,6 @@
 # A6 · LightGBM: let the computer choose the boxes (lifecycle stage 5: Train)
 
-> **Date:** 2026-10-10 · **Notebook:** [notebooks/A06_lightgbm.ipynb](../notebooks/A06_lightgbm.ipynb) · **Code:** [mini_boost.py](../slotpred/mini_boost.py), [train_lgbm.py](../slotpred/train_lgbm.py) · **Git tag:** `lesson-A6`
+> **Date:** 2026-10-10 · **Notebook:** [notebooks/A06_lightgbm.ipynb](../notebooks/A06_lightgbm.ipynb) · **Code:** [mini_boost.py](../slotpred/mini_boost.py), [train_lgbm.py](../slotpred/train_lgbm.py) · **Lab page:** [A6 LightGBM Lab](https://claude.ai/artifact/YGw6XDpTAsFu573Ymgmjmm) · **Git tag:** `lesson-A6`
 
 ## Where this fits (mind map)
 
@@ -82,10 +82,40 @@ Example: a box's errors have q-point +10 minutes; with $\eta = 0.05$ every visit
 | June curves, leaderboard, one-visit trace, importance | [A06_lightgbm.ipynb](../notebooks/A06_lightgbm.ipynb) | me |
 
 ## Our results
-<!-- From your notebook: MiniBoost June scores by round, the LightGBM leaderboard against A5, the training curve. -->
+
+All fitted on train (Jan–May), scored on June. q = 0.8 unless stated.
+
+### My hand-made booster (MiniBoost: 100 rounds, learning rate 0.1, 8 boxes per tree)
+
+| Rounds | 1 | 5 | 10 | 25 | 50 | 100 |
+|---|---|---|---|---|---|---|
+| June score | 2.104 | 1.761 | 1.567 | **1.336** | 1.210 | **1.161** |
+
+It starts at the training P80 (17.95, like B1), beats B3 (1.349) somewhere between rounds 10 and 25, and ends only 0.03 above the best possible (1.130). About 15 lines of my own code get within 0.013 of LightGBM.
+
+### LightGBM vs the baselines (June)
+
+| q | B3 | LightGBM | Best possible | Gap closed | Coverage | On time (booked) | Idle min / visit |
+|---|---|---|---|---|---|---|---|
+| 0.67 | 1.628 | **1.407** | 1.381 | 89% | 0.664 | 84.0% | 4.18 |
+| 0.75 | 1.489 | **1.279** | 1.253 | 89% | 0.742 | 87.8% | 4.95 |
+| 0.80 | 1.349 | **1.148** | 1.130 | 92% | 0.791 | 90.4% | 5.56 |
+
+- Early stopping kept 140 / 137 / 184 trees (q = 0.67 / 0.75 / 0.80).
+- Coverage is close to q at every q, just under by 0.006–0.009: the predictions mean what they claim.
+- Gap closed = (B3 − LightGBM) ÷ (B3 − best possible).
+
+### What it relied on (share of gain, q = 0.8)
+
+doctor 36% · visit type 36% · reports 9% · age 6% · hour 3% · interpreter 3% · clinic 2% · weekday 2% · teleconsult 1.5% · department 1% · age_missing 0.1%
+
+Department is low because each doctor belongs to one department (knowing the doctor already tells you the department). age_missing is almost zero because ages went missing at random (A3).
 
 ## Gotchas
--
+- "After 24 rounds" can't be read off scores measured at 1, 5, 10, 25: say "between 10 and 25".
+- LightGBM 4.7 deprecates `eval_set=[...]`; use `eval_X=(...)`, `eval_y=(...)`. Same result, no warning.
+- A low importance doesn't mean "useless": a column can be low because another column already carries its information (department vs doctor).
+- Run notebooks top to bottom (Restart & Run All); cells run out of order can leave stale variables.
 
 ## Self-check
 
@@ -110,7 +140,9 @@ q is the PO's business setting (A1). The learning rate, number of leaves and min
 </details>
 
 ## In my words
-<!-- Written by you, not Claude: 3 lines, as if teaching a friend. -->
-
+1. The A5 backoff rule. A5 says a box with fewer than 30 training visits isn't trusted, because a few visits are mostly luck. min_child_samples = 30 has the same effect inside the trees: every leaf (box) must hold at least 30 training visits. The difference is that LightGBM refuses to make small boxes at all, instead of falling back to a bigger parent box afterwards
+2. The step is learning rate × the tree's value, so 0.05 × 10 = 0.5 minutes. If the tree really means +10 minutes, that would be 0.05 × 10 = 0.5 minutes, not 1. Correct answer: 0.5 minutes, which is 5% of the way. The later trees keep adding small corrections.
+3. Training keeps improving, but June gets worse, which is overfitting. June is data the model hasn't trained on, so when it stops improving, further trees are memorising individual training visits instead of learning patterns that carry over. Stopping there keeps the best number of trees.
+4. ach tree is a rough model of what the previous trees still got wrong, and adding them up in small steps makes the prediction better. Boosting starts from one number (the training P80) and, in each round, adds a small tree that pushes every visit in the direction that lowers the pinball loss. After many small corrections the sum is a good prediction.
 ## New terms
 decision tree, leaf, round, push (gradient), boosting, learning rate, overfitting, early stopping, feature importance (gain), hyperparameter

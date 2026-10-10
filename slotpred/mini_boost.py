@@ -32,8 +32,11 @@ def pinball_push(y, pred, q):
 
     Returns a float numpy array. Example, q = 0.8: y = [30, 12, 20], pred = [20, 20, 20] -> [0.8, -0.2, 0.0]
     """
-    # TODO(you)
-    raise NotImplementedError
+    y, pred = np.asarray(y, float), np.asarray(pred, float)
+    push = np.zeros_like(y)
+    push[y > pred] = q
+    push[y < pred] = -(1 - q)
+    return push
 
 
 class MiniBoost:
@@ -61,8 +64,22 @@ class MiniBoost:
                 remember (tree, values); append pinball_loss(y, pred, self.q) to the history
         Return self.
         """
-        # TODO(you)
-        raise NotImplementedError
+        y = np.asarray(y, float)
+        pred = np.full(len(y), np.quantile(y, self.q), dtype=float)
+        self.start_ = np.quantile(y, self.q)
+        self.rounds_ = []
+        self.history_ = []
+
+        for _ in range(self.n_rounds):
+            push = pinball_push(y, pred, self.q)
+            tree = self._new_tree().fit(X, push)
+            leaves = tree.apply(X)
+            values = leaf_values(leaves, y - pred, self.q)
+            pred = pred + self.learning_rate * step(leaves, values)
+            self.rounds_.append((tree, values))
+            self.history_.append(pinball_loss(y, pred, self.q))
+
+        return self
 
     # ------------------------------------------------------------ Claude
 

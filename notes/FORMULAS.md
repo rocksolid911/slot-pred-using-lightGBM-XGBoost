@@ -56,4 +56,10 @@ $$\text{score}=\frac1n\sum_{i=1}^{n}\Big(q\cdot\max(y_i-p_i,0)+(1-q)\cdot\max(p_
 **How shaky a box's q-point is** ([A5](A05-baselines.md)): the jumpiness shrinks with the square root of the visits in the box (4× the visits → half the jump).
 $$\text{SD}(\hat Q_q)\;\propto\;\frac{1}{\sqrt n}$$
 
+**The push (gradient of the pinball score)** ([A6](A06-lightgbm.md)): $y_i$ the actual minutes, $p_i$ the current prediction.
+$$\text{push}_i=\begin{cases}+q & y_i>p_i\ -(1-q) & y_i<p_i\ 0 & y_i=p_i\end{cases}$$
+
+**One boosting round** ([A6](A06-lightgbm.md)): $\eta$ is the learning rate; $v_{\text{box}}$ is the q-point of the errors $y_j-p_j$ of the visits in that box.
+$$p_i \leftarrow p_i + \eta\, v_{\text{box}(i)}$$
+
 ## Track B

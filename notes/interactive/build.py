@@ -45,8 +45,11 @@ LESSONS = [
          name="Baselines", stage="Stage 4 · Baseline", note="notes/A05-baselines.md",
          summary="The score to beat: pinball loss, four simple baselines on June, why tiny boxes are luck, and rounding to the grid.",
          labs=["The score", "June leaderboard", "Box size", "Rounding"]),
-    dict(id="A6", status="now", name="LightGBM quantile model", stage="Stage 5 · Train", summary="Gradient boosting with the pinball loss, one model per q."),
-    dict(id="A7", name="XGBoost comparison", stage="Stage 5 · Train", summary="Same idea, different library; keep the winner."),
+    dict(id="A6", slug="A06-lightgbm", src="A06.html", status="done", data=True, title="A6 LightGBM Lab",
+         name="LightGBM quantile model", stage="Stage 5 · Train", note="notes/A06-lightgbm.md",
+         summary="Boosting: many small trees, each nudging visits towards their q-point; early stopping on June; one model per q.",
+         labs=["Boosting round by round", "Training curve", "LightGBM vs baselines"]),
+    dict(id="A7", status="now", name="XGBoost comparison", stage="Stage 5 · Train", summary="Same idea, different library; keep the winner."),
     dict(id="A8", name="Evaluation", stage="Stage 6 · Evaluate", summary="Slices, calibration, error analysis, and the PO's trade-off table."),
     dict(id="A9", name="Tuning, SHAP, fairness", stage="Stage 7 · Select", summary="Did the model find the hidden rule? Model card."),
     dict(id="A10", name="Experiment tracking", stage="Cross-cutting", summary="MLflow runs and model versions."),
@@ -114,6 +117,46 @@ def slot_data():
         "eda": eda_data(world, raw),
         "prep": prep_data(),
         "base": baseline_data(),
+        "lgbm": lgbm_data(),
+    }
+
+
+def lgbm_data():
+    """A6: the q = 0.8 training curve, one visit's prediction tree by tree, the leaderboard and importance."""
+    import pandas as pd
+
+    from slotpred.config import OUT, Q_CANDIDATES
+    from slotpred.features import make_xy
+    from slotpred.metrics import evaluate
+    from slotpred.prepare import load_prepared
+    from slotpred.train_lgbm import fit_one
+
+    splits, state = load_prepared()
+    Xtr, ytr = make_xy(splits["train"], state)
+    Xva, yva = make_xy(splits["valid"], state)
+    models = {q: fit_one(q, Xtr, ytr, Xva, yva) for q in Q_CANDIDATES}
+    m = models[0.8]
+    hist = m.evals_result_
+    v = splits["valid"]
+    i = int(((v["department"] == "Neurology") & (v["visit_type"] == "new")).to_numpy().argmax())
+    row = Xva.iloc[[i]]
+    n = len(hist["valid"]["quantile"])
+    trace = [round(float(m.predict(row, num_iteration=k)[0]), 2) for k in range(1, n + 1)]
+    gain = {}
+    for q, mq in models.items():
+        g = pd.Series(mq.booster_.feature_importance("gain"), index=mq.booster_.feature_name())
+        gain[str(q)] = (g / g.sum()).round(4).to_dict()
+    base = pd.read_csv(OUT / "baselines_valid.csv")
+    board = base[base["method"].str.match(r"B3|Oracle")][["method", "q", "pinball", "coverage", "booked_on_time", "booked_idle_min"]]
+    lg = [evaluate(yva, mq.predict(Xva), q, "LightGBM") for q, mq in models.items()]
+    board = pd.concat([board, pd.DataFrame(lg)[board.columns]]).round(4)
+    return {
+        "best": {str(q): int(mq.best_iteration_) for q, mq in models.items()},
+        "train": [round(x, 4) for x in hist["train"]["quantile"]], "valid": [round(x, 4) for x in hist["valid"]["quantile"]],
+        "visit": {k: (str(val) if not isinstance(val, (int, float)) else val) for k, val in splits["valid"].iloc[i][
+            ["department", "visit_type", "doctor", "clinic", "age", "prior_reports", "slot_time", "date"]].items()},
+        "visitActual": round(float(yva.iloc[i]), 2), "trace": trace, "start": round(float(ytr.quantile(0.8)), 2),
+        "board": board.to_dict("records"), "gain": gain,
     }
 
 

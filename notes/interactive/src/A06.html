@@ -1,0 +1,176 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-boost">6.1 Boosting, round by round</a>
+  <a href="#lab-curve">6.2 Your training curve</a>
+  <a href="#lab-board">6.3 LightGBM vs the baselines</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>Many small trees, each fixing the last one's mistakes</h2>
+    <p>Start with one number for everyone. Each round, every visit gets a push: up by q if it would run late, down by 1 − q if the doctor would sit idle. A small tree groups visits that need a similar push into boxes, and each box moves a small step. Stop when June stops improving.</p>
+  </div>
+
+  <div class="lab" id="lab-boost">
+    <div class="lab-head"><span class="tag">Lab 6.1</span><h3>Watch a booster learn three kinds of visit</h3></div>
+    <p class="say">600 simulated visits: Dermatology follow-ups (about 9 min), General Medicine new (about 15 min) and Neurology new (about 30 min). Each round's tree may ask only <b>one</b> yes/no question (a "stump"), so it takes several rounds to tell all three apart. Drag the rounds slider and watch each kind's prediction climb or fall towards its own q-point (dashed).</p>
+    <div class="controls">
+      <div class="ctl"><label for="bsRounds">Rounds (trees) <output id="bsRoundsOut"></output></label><input type="range" id="bsRounds" min="0" max="80" step="1" value="10"></div>
+      <div class="ctl"><label for="bsLr">Learning rate <output id="bsLrOut"></output></label><input type="range" id="bsLr" min="0.02" max="1" step="0.02" value="0.2"></div>
+      <div class="ctl"><span class="lbl">q (the PO's setting)</span>
+        <div class="seg" role="group" aria-label="q">
+          <button type="button" data-oq="0.67" aria-pressed="false">0.67</button>
+          <button type="button" data-oq="0.75" aria-pressed="false">0.75</button>
+          <button type="button" data-oq="0.8" aria-pressed="true">0.80</button>
+        </div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Score (lower is better)</span><strong id="bsScore"></strong></div>
+      <div class="stat"><span>This round's question</span><strong id="bsQ" style="font-size:1rem"></strong></div>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Kind</th><th class="num">Its q-point (target)</th><th class="num">Prediction now</th><th class="num">Share late (push +q)</th><th class="num">Share idle (push −(1−q))</th></tr></thead>
+      <tbody id="bsTable"></tbody>
+    </table></div>
+    <p class="say" id="bsSay"></p>
+    <div class="chart"><canvas id="bsChart" aria-label="Prediction per kind of visit, by round"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-curve">
+    <div class="lab-head"><span class="tag">Lab 6.2</span><h3>Your real training curve (q = 0.80)</h3></div>
+    <p class="say">The score after every tree, on the training months and on June, from your <code>fit_one</code> run. Slide through the trees and watch one real June visit's P80 being built.</p>
+    <div class="controls">
+      <div class="ctl"><label for="cvTrees">Trees used <output id="cvTreesOut"></output></label><input type="range" id="cvTrees" min="1" max="2" step="1" value="1"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>Training score</span><strong id="cvTrain"></strong></div>
+      <div class="stat"><span>June score</span><strong id="cvValid"></strong></div>
+      <div class="stat"><span>This visit's P80</span><strong id="cvVisit"></strong></div>
+    </div>
+    <p class="say" id="cvSay"></p>
+    <div class="chart"><canvas id="cvChart" aria-label="Training and June score by number of trees"></canvas></div>
+  </div>
+
+  <div class="lab" id="lab-board">
+    <div class="lab-head"><span class="tag">Lab 6.3</span><h3>LightGBM vs your best baseline</h3></div>
+    <div class="seg" role="group" aria-label="q">
+      <button type="button" data-lq="0.67" aria-pressed="false">q = 0.67</button>
+      <button type="button" data-lq="0.75" aria-pressed="false">q = 0.75</button>
+      <button type="button" data-lq="0.8" aria-pressed="true">q = 0.80</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Method</th><th class="num">Score</th><th class="num">Coverage (raw)</th><th class="num">On time (booked)</th><th class="num">Idle min / visit</th></tr></thead>
+      <tbody id="lbTable"></tbody>
+    </table></div>
+    <p class="say" id="lbSay"></p>
+    <div class="chart"><canvas id="lbChart" aria-label="Share of gain per column"></canvas></div>
+  </div>
+</section>
+
+<script>
+const G = D.lgbm;
+const segL = (attr, init, fn) => { let v = init; document.querySelectorAll(`[${attr}]`).forEach(b => b.addEventListener("click", () => {
+  v = b.getAttribute(attr); document.querySelectorAll(`[${attr}]`).forEach(x => x.setAttribute("aria-pressed", x === b)); fn(v); })); return () => v; };
+const qtl = (arr, p) => { const s = [...arr].sort((a, b) => a - b), i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i); return s[lo] + (s[hi] - s[lo]) * (i - lo); };
+
+/* Lab 6.1: boosting with stumps on three kinds of visit */
+function rng6(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const KINDS = [["Dermatology follow-up", 9], ["General Medicine new", 15], ["Neurology new", 30]];
+const g6 = rng6(11), VIS = [];
+KINDS.forEach(([, m], k) => { for (let i = 0; i < 200; i++) { const u1 = g6() || 1e-9, u2 = g6(), z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); VIS.push({ k, y: m * Math.exp(-D.sigma * D.sigma / 2 + D.sigma * z) }); } });
+const SPLITS = [{ t: 0, text: "Is it Dermatology follow-up?" }, { t: 1, text: "Is it Derm or General?" }];   /* kind <= t */
+function boost(q, lr, rounds) {
+  const y = VIS.map(v => v.y), start = qtl(y, q); let pred = VIS.map(() => start);
+  const path = [KINDS.map(() => start)], asked = [], scores = [score6(y, pred, q)];
+  for (let r = 0; r < rounds; r++) {
+    const push = VIS.map((v, i) => v.y > pred[i] ? q : v.y < pred[i] ? -(1 - q) : 0);
+    /* pick the question whose two halves have the most different average push (least squared error) */
+    let best = null;
+    for (const s of SPLITS) {
+      const L = [], Rr = []; VIS.forEach((v, i) => (v.k <= s.t ? L : Rr).push(push[i]));
+      const sse = a => { const m = a.reduce((x, y) => x + y, 0) / a.length; return a.reduce((x, y) => x + (y - m) ** 2, 0); };
+      const e = sse(L) + sse(Rr); if (!best || e < best.e) best = { ...s, e };
+    }
+    const step = {};
+    for (const side of [true, false]) {
+      const idx = VIS.map((v, i) => i).filter(i => (VIS[i].k <= best.t) === side);
+      step[side] = qtl(idx.map(i => y[i] - pred[i]), q);
+    }
+    pred = pred.map((p, i) => p + lr * step[VIS[i].k <= best.t]);
+    asked.push(best.text); scores.push(score6(y, pred, q));
+    path.push(KINDS.map((_, k) => pred[VIS.findIndex(v => v.k === k)]));
+  }
+  return { start, pred, path, asked, scores };
+}
+function score6(y, p, q) { let s = 0; y.forEach((v, i) => s += v > p[i] ? q * (v - p[i]) : (1 - q) * (p[i] - v)); return s / y.length; }
+const bsChart = makeChart("bsChart", "round", "predicted q-point (minutes)", { xmin: 0, ymin: 0 });
+bindOut("bsRounds", v => v); bindOut("bsLr", v => f(v, 2));
+const bsQ = segL("data-oq", "0.8", () => updBoost());
+function updBoost() {
+  const q = +bsQ(), lr = +$("bsLr").value, rounds = +$("bsRounds").value, all = boost(q, lr, 80), r = Math.min(rounds, 80);
+  const now = all.path[r], targets = KINDS.map((_, k) => qtl(VIS.filter(v => v.k === k).map(v => v.y), q));
+  $("bsScore").textContent = f(all.scores[r], 3);
+  $("bsQ").textContent = r === 0 ? "none yet: one number for all" : all.asked[r - 1];
+  $("bsTable").innerHTML = KINDS.map(([name], k) => {
+    const ys = VIS.filter(v => v.k === k).map(v => v.y), late = ys.filter(y => y > now[k]).length / ys.length;
+    return `<tr><td>${name}</td><td class="num">${f(targets[k], 1)}</td><td class="num">${f(now[k], 1)}</td><td class="num">${pct(late)}</td><td class="num">${pct(1 - late)}</td></tr>`; }).join("");
+  const far = Math.max(...now.map((p, k) => Math.abs(p - targets[k])));
+  $("bsSay").innerHTML = r === 0
+    ? `Round 0: everyone gets <b>${f(all.start, 1)}</b> min, the q-point of all 600 visits (like B1). Neurology is mostly late (strong push up), Dermatology mostly idle (push down).`
+    : `After ${r} round${r > 1 ? "s" : ""} the predictions are at most <b>${f(far, 1)} min</b> from their targets. ${far < 0.5 ? "Each kind has settled at its own q-point: about " + pct(q) + " of its visits fit." : "Keep adding rounds: when a kind still has more than " + pct(1 - q) + " of visits late, the late pushes win and it moves up."} ` +
+      (lr >= 0.8 ? "A large learning rate jumps fast but can overshoot." : lr <= 0.06 ? "A tiny learning rate is safe but needs many rounds." : "");
+  const C = [css("--idle"), css("--muted"), css("--late")], top = Math.max(...targets) * 1.25;
+  bsChart.data.datasets = KINDS.flatMap(([name], k) => [
+    line(name, all.path.slice(0, 81).map((p, i) => ({ x: i, y: p[k] })), C[k], { borderWidth: 1.5 }),
+    line("_target " + name, [{ x: 0, y: targets[k] }, { x: 80, y: targets[k] }], C[k], { borderDash: [5, 4], borderWidth: 1 }),
+  ]).concat([vline("Now", r, 0, top, css("--accent"))]);
+  bsChart.options.scales.x.max = 80; bsChart.options.scales.y.max = top;
+  paint(bsChart);
+}
+registerLab(updBoost, ["bsRounds", "bsLr"]);
+
+/* Lab 6.2: the real training curve */
+const best = G.best["0.8"], N = G.valid.length;
+$("cvTrees").max = N; $("cvTrees").value = best;
+const cvChart = makeChart("cvChart", "number of trees", "score (lower is better)", { xmin: 0, xmax: N, ymin: 1.0, ymax: 1.8 });
+bindOut("cvTrees", v => v);
+registerLab(function updCurve() {
+  const k = +$("cvTrees").value, tr = G.train[k - 1], va = G.valid[k - 1], vp = G.trace[k - 1];
+  $("cvTrain").textContent = f(tr, 3); $("cvValid").textContent = f(va, 3); $("cvVisit").textContent = f(vp, 2) + " min";
+  const V = G.visit;
+  $("cvSay").innerHTML = `The visit: ${V.department} ${V.visit_type}, ${V.doctor}, ${V.prior_reports} reports, ${V.slot_time}. It actually took ${f(G.visitActual, 1)} min. ` +
+    (k < 20 ? `With only ${k} tree${k > 1 ? "s" : ""}, its P80 is still near the starting point (${f(G.start, 2)} min for everyone).`
+      : k <= best ? `Both scores are still falling: the trees are learning real patterns.`
+      : `Past tree ${best}, training keeps improving (${f(G.train[best - 1], 3)} → ${f(tr, 3)}) but June doesn't (best ${f(G.valid[best - 1], 3)}): <b>overfitting</b>. Early stopping keeps ${best} trees.`);
+  const A = css("--accent"), I = css("--idle"), L = css("--late"), M = css("--muted");
+  cvChart.data.datasets = [
+    line("Training months", G.train.map((y, i) => ({ x: i + 1, y })), I),
+    line("June", G.valid.map((y, i) => ({ x: i + 1, y })), A),
+    line("Best possible (1.130)", [{ x: 0, y: 1.13 }, { x: N, y: 1.13 }], L, { borderDash: [2, 3], borderWidth: 1 }),
+    vline(`Kept: ${best} trees`, best, 1.0, 1.8, M, [5, 4]), vline("_now", k, 1.0, 1.8, css("--ink"), [1, 0]),
+  ];
+  paint(cvChart);
+}, ["cvTrees"]);
+
+/* Lab 6.3: leaderboard and importance */
+const lbChart = new Chart($("lbChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
+  scales: { x: { min: 0, title: { display: true, text: "share of total gain (how much each column's questions lowered the score)" } }, y: {} } } });
+const lbQ = segL("data-lq", "0.8", () => updBoardL());
+function updBoardL() {
+  const q = +lbQ(), rows = G.board.filter(r => Math.abs(r.q - q) < 1e-9);
+  const name = m => m.startsWith("B3") ? "B3 doctor + visit type" : m.startsWith("Oracle") ? "Best possible (oracle)" : m;
+  $("lbTable").innerHTML = rows.map(r => `<tr${r.method === "LightGBM" ? ' class="total"' : ""}><td>${name(r.method)}</td><td class="num">${f(r.pinball, 3)}</td><td class="num">${f(r.coverage, 3)}</td><td class="num">${pct(r.booked_on_time, 1)}</td><td class="num">${f(r.booked_idle_min, 2)}</td></tr>`).join("");
+  const b3 = rows.find(r => r.method.startsWith("B3")), lg = rows.find(r => r.method === "LightGBM"), or = rows.find(r => r.method.startsWith("Oracle"));
+  $("lbSay").innerHTML = `LightGBM closes <b>${pct((b3.pinball - lg.pinball) / (b3.pinball - or.pinball))}</b> of the gap between B3 and the best possible score, with coverage ${f(lg.coverage, 3)} (target ${q}). It kept ${G.best[String(q)]} trees. ` +
+    `Below: which columns its questions used. Doctor and visit type lead, as in the simulator; department is low only because the doctor already tells you the department.`;
+  const g = Object.entries(G.gain[String(q)]).sort((a, b) => b[1] - a[1]);
+  lbChart.data.labels = g.map(e => e[0].replace("_", " "));
+  lbChart.data.datasets = [{ data: g.map(e => e[1]), backgroundColor: hexA(css("--accent"), 0.8), borderWidth: 0 }];
+  lbChart.options.scales.x.ticks = { callback: v => pct(v) };
+  paint(lbChart);
+}
+registerLab(updBoardL);
+
+startLabs();
+</script>

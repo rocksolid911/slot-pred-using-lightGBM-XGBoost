@@ -37,8 +37,7 @@ def make_model(q, **overrides):
 
     hint: lgb.LGBMRegressor(objective=..., alpha=..., **{**PARAMS, **overrides})
     """
-    # TODO(you)
-    raise NotImplementedError
+    return lgb.LGBMRegressor(objective="quantile", alpha=q, **{**PARAMS, **overrides})
 
 
 def fit_one(q, X_train, y_train, X_valid, y_valid, patience=100, **overrides):
@@ -54,8 +53,12 @@ def fit_one(q, X_train, y_train, X_valid, y_valid, patience=100, **overrides):
     the train and valid score after every tree (for the curve in the notebook).
     LightGBM recognises X_train as the training data, so early stopping ignores it and watches June only.
     """
-    # TODO(you)
-    raise NotImplementedError
+    model = make_model(q, **overrides)
+    model.fit(X_train, y_train,
+              eval_X=(X_train, X_valid), eval_y=(y_train, y_valid),   # score both after every tree
+              eval_names=["train", "valid"], eval_metric="quantile",
+              callbacks=[lgb.early_stopping(patience, verbose=False)])
+    return model
 
 
 # ---------------------------------------------------------------- Claude
