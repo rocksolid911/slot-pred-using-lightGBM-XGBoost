@@ -21,7 +21,7 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 | A2 | 1 Collect | Simulating the hospital (a stand-in for an EMR export) | [A02-simulator.md](A02-simulator.md) | ✅ done |
 | A3 | 2 Explore | EDA: distributions, missing values, leakage smells | [A03-eda.md](A03-eda.md) | ✅ done |
 | A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | [A04-prepare.md](A04-prepare.md) | ✅ done |
-| A5 | 4 Baseline | Fixed 15 min; department × visit-type median | | ▶️ next |
+| A5 | 4 Baseline | Fixed 15 min; department × visit-type median | [A05-baselines.md](A05-baselines.md) | ▶️ in progress |
 | A6 | 5 Train | LightGBM with the quantile objective | | |
 | A7 | 5 Train | XGBoost comparison | | |
 | A8 | 6 Evaluate | Slices, calibration, error analysis | | |
