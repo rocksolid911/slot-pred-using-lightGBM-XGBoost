@@ -1,0 +1,225 @@
+<header>
+  <div class="eyebrow">OPD scheduling · trained model · results on July–August 2026</div>
+  <h1>OPD Slot Predictor</h1>
+  <p class="sub">Enter a booking and get the slot length to book, from a LightGBM model trained on January–June visits. Below the demo: how the model did on July–August, two months it never saw, against today's fixed 15-minute slot.</p>
+  <p class="note">All visits are <b>simulated</b> (a learning project): the doctors, clinics and patients are invented, and no real patient data was used.</p>
+</header>
+
+<section class="lesson">
+  <div class="lab" id="demo">
+    <div class="lab-head"><span class="tag">Try it</span><h3>Booking → slot</h3></div>
+    <form id="bk" class="controls" autocomplete="off">
+      <div class="ctl"><label for="fDoctor">Doctor</label><select id="fDoctor"></select></div>
+      <div class="ctl" id="deptBox" hidden><label for="fDept">Department of the new doctor</label><select id="fDept"></select></div>
+      <div class="ctl"><label for="fVisit">Visit type</label><select id="fVisit">
+        <option value="new">New</option><option value="follow-up">Follow-up</option><option value="review">Report review</option></select></div>
+      <div class="ctl"><label for="fClinic">Clinic</label><select id="fClinic"></select></div>
+      <div class="ctl"><label for="fDate">Date</label><input type="date" id="fDate"></div>
+      <div class="ctl"><label for="fTime">Slot time</label><select id="fTime"></select></div>
+      <div class="ctl"><label for="fAge">Patient age <output id="fAgeOut"></output></label>
+        <div class="inline"><input type="number" id="fAge" min="0" max="110" step="1" value="34"><label class="check"><input type="checkbox" id="fAgeUnknown"> unknown</label></div></div>
+      <div class="ctl"><label for="fReports">Prior reports to read <output id="fReportsOut"></output></label><input type="range" id="fReports" min="0" max="12" step="1" value="2"></div>
+      <div class="ctl checks"><label class="check"><input type="checkbox" id="fInterp"> Needs an interpreter</label>
+        <label class="check"><input type="checkbox" id="fTele"> Video (tele) consult</label></div>
+    </form>
+    <p class="err" id="bkErr" hidden></p>
+    <div class="slots" id="slots"></div>
+    <p class="say" id="bkSay"></p>
+  </div>
+
+  <div class="lab" id="results">
+    <div class="lab-head"><span class="tag">Results</span><h3>July–August: <span id="nTest"></span> visits the model never saw</h3></div>
+    <p class="say">The model was trained on <span id="nTrain"></span> visits from January–June and scored <b>once</b> on July–August. Each row books the model's prediction rounded up to 5 minutes; "today" books 15 minutes for everyone. Which safety level to use (P67, P75 or P80) is the product owner's choice; this table is what they choose from.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Booking rule</th><th class="num">Visits on time</th><th class="num">Late min / visit</th><th class="num">Idle min / visit</th><th class="num">Average slot</th><th class="num">Patients per 4 h</th></tr></thead>
+      <tbody id="tradeoff"></tbody>
+    </table></div>
+    <div class="chart short"><canvas id="tradeChart" aria-label="Visits on time against idle minutes, per booking rule"></canvas></div>
+    <p class="say" id="tradeSay"></p>
+  </div>
+
+  <div class="lab" id="quality">
+    <div class="lab-head"><span class="tag">Quality</span><h3>How close to the best possible</h3></div>
+    <p class="say">The score (pinball loss) charges each late minute q and each idle minute 1 − q, so lower is better. "Best possible" knows the simulator's hidden rule; only random luck is left. The lookup table is the best simple rule (median-style P-point per doctor and visit type).</p>
+    <div class="seg" role="group" aria-label="Safety level">
+      <button type="button" data-rq="0.67" aria-pressed="false">P67</button>
+      <button type="button" data-rq="0.75" aria-pressed="true">P75</button>
+      <button type="button" data-rq="0.80" aria-pressed="false">P80</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Method</th><th class="num">Score</th><th class="num">On time (booked)</th><th class="num">Idle min / visit</th></tr></thead>
+      <tbody id="board"></tbody>
+    </table></div>
+    <p class="say" id="boardSay"></p>
+  </div>
+
+  <div class="lab" id="slices">
+    <div class="lab-head"><span class="tag">Where it struggles</span><h3>Visits on time, by department and for the new doctor</h3></div>
+    <div class="seg" role="group" aria-label="Safety level">
+      <button type="button" data-sq="0.67" aria-pressed="false">P67</button>
+      <button type="button" data-sq="0.75" aria-pressed="true">P75</button>
+      <button type="button" data-sq="0.80" aria-pressed="false">P80</button>
+    </div>
+    <div class="chart"><canvas id="sliceChart" aria-label="Share of visits on time by department"></canvas></div>
+    <ul class="findings" id="findings"></ul>
+  </div>
+
+  <div class="lab" id="limits">
+    <div class="lab-head"><span class="tag">Before going live</span><h3>Limits and next steps</h3></div>
+    <ul class="findings">
+      <li><b>Simulated data.</b> The method is real; the numbers are from a simulated hospital. A real deployment retrains on the hospital's EMR export.</li>
+      <li><b>Changes after training.</b> Dermatology visits got longer from 1 July; the model, trained on January–June, books them too short. Monthly retraining and a drift monitor fix this.</li>
+      <li><b>New doctors.</b> A doctor with no history gets the department's typical slot until a few weeks of their visits exist, then the model is retrained.</li>
+      <li><b>The safety level is a business decision.</b> P67, P75 or P80 trades patient waiting against doctor idle time; the product owner picks from the table above.</li>
+      <li><b>Safe rollout.</b> Run in shadow mode first (predict, compare, don't book), keep 15 minutes as the fallback if the model is unavailable.</li>
+    </ul>
+    <p class="say sub">Inputs used, all known at booking time: doctor, department, visit type, clinic, weekday, hour, patient age (or unknown), prior reports, interpreter, video consult. Model: LightGBM with the quantile objective, one model per safety level; chosen over XGBoost and simple lookup tables on June data.</p>
+  </div>
+</section>
+
+<style>
+[hidden] { display: none !important; }
+.ctl label.check, .inline label.check { justify-content: flex-start; color: var(--ink); font-size: 14px; }
+.note { font-size: 13px; color: var(--muted); border-left: 3px solid var(--idle); padding: 2px 10px; }
+.inline { display: flex; gap: 10px; align-items: center; }
+.inline input[type=number] { max-width: 6rem; }
+.checks { align-content: end; }
+.slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
+.slot { border: 1px solid var(--line); border-radius: 10px; padding: .75rem .9rem; display: grid; gap: 2px; background: var(--bg); }
+.slot.pick { border-color: var(--accent); background: var(--soft); }
+.slot .lvl { font: 500 12px var(--f-mono); color: var(--muted); letter-spacing: .04em; }
+.slot .book { font: 600 2rem/1.1 var(--f-display); color: var(--ink); }
+.slot .book small { font: 500 .9rem var(--f-body); color: var(--muted); }
+.slot .raw { font-size: 13px; color: var(--muted); }
+.slot.today .book { color: var(--muted); }
+.findings { margin: 0; padding-left: 1.1rem; display: grid; gap: .45rem; max-width: 72ch; }
+.findings li { font-size: 15px; }
+tr.pick td { font-weight: 600; }
+</style>
+
+<script>
+const M = D.model, RS = D.results;
+const QK = ["0.67", "0.75", "0.80"], QN = { "0.67": "P67", "0.75": "P75", "0.80": "P80" };
+const PICK = "0.75";   /* provisional default (config.Q_SAFE) until the product owner chooses */
+const segR = (attr, init, fn) => { let v = init; document.querySelectorAll(`[${attr}]`).forEach(b => b.addEventListener("click", () => {
+  v = b.getAttribute(attr); document.querySelectorAll(`[${attr}]`).forEach(x => x.setAttribute("aria-pressed", x === b)); fn(v); })); return () => v; };
+
+/* ---------- the model: walk each tree, add the leaves (identical to LightGBM's predict) ---------- */
+function walk(n, x) {
+  while (!("v" in n)) {
+    const v = x[n.f];
+    n = n.c ? (v >= 0 && n.c.includes(v) ? n.l : n.r) : (v <= n.t ? n.l : n.r);
+  }
+  return n.v;
+}
+const predictQ = (q, x) => M.models[q].reduce((s, t) => s + walk(t, x), 0);
+const book = p => Math.max(Math.ceil(p / M.grid - 1e-9) * M.grid, M.grid);
+
+/* ---------- the form ---------- */
+const byDept = {};
+Object.entries(M.doctor_department).forEach(([doc, dep]) => (byDept[dep] = byDept[dep] || []).push(doc));
+$("fDoctor").innerHTML = Object.keys(byDept).sort().map(dep => `<optgroup label="${dep}">${byDept[dep].sort().map(d => `<option value="${d}">Dr ${d}</option>`).join("")}</optgroup>`).join("") +
+  `<optgroup label="Other"><option value="__new">A doctor not in the training data</option></optgroup>`;
+$("fDept").innerHTML = M.categories.department.map(d => `<option>${d}</option>`).join("");
+$("fClinic").innerHTML = M.categories.clinic.map(c => `<option>${c}</option>`).join("");
+const times = []; for (let h = 9; h <= 17; h++) for (const m of ["00", "15", "30", "45"]) times.push(`${String(h).padStart(2, "0")}:${m}`);
+$("fTime").innerHTML = times.map(t => `<option>${t}</option>`).join("");
+/* example booking: a new visit with Dr Deepak Rao, Monday 10:30 at HSR */
+$("fDoctor").value = "Deepak Rao"; $("fClinic").value = "HSR"; $("fTime").value = "10:30"; $("fDate").value = "2026-10-12";
+bindOut("fReports", v => v);
+
+function readBooking() {
+  const isNew = $("fDoctor").value === "__new";
+  const doctor = isNew ? null : $("fDoctor").value;
+  const dept = isNew ? $("fDept").value : M.doctor_department[doctor];
+  const date = $("fDate").value ? new Date($("fDate").value + "T12:00:00") : null;
+  const ageUnknown = $("fAgeUnknown").checked, age = +$("fAge").value;
+  return { isNew, doctor, dept, visit: $("fVisit").value, clinic: $("fClinic").value, date,
+           weekday: date ? (date.getDay() + 6) % 7 : null, hour: +$("fTime").value.slice(0, 2),
+           ageUnknown, age, reports: +$("fReports").value, interp: $("fInterp").checked, tele: $("fTele").checked };
+}
+function encode(b) {
+  const code = (col, v) => M.categories[col].indexOf(v);
+  return [code("department", b.dept), code("visit_type", b.visit), b.doctor ? code("doctor", b.doctor) : -1, code("clinic", b.clinic),
+          b.ageUnknown ? M.age_fill : b.age, b.ageUnknown ? 1 : 0, b.interp ? 1 : 0, b.tele ? 1 : 0, b.reports, b.weekday, b.hour];
+}
+function updDemo() {
+  const b = readBooking(), err = $("bkErr");
+  $("deptBox").hidden = !b.isNew; $("fAge").disabled = b.ageUnknown;
+  const problem = !b.date ? "Pick a date." : b.weekday === 6 ? "The clinics are closed on Sundays: pick another day." :
+    (!b.ageUnknown && (!(b.age >= 0) || b.age > 110)) ? "Enter an age from 0 to 110, or tick unknown." : "";
+  err.hidden = !problem; err.textContent = problem;
+  if (problem) { $("slots").innerHTML = ""; $("bkSay").textContent = ""; return; }
+  const x = encode(b);
+  const raw = Object.fromEntries(QK.map(q => [q, b.isNew ? M.backoff[q][`${b.dept}|${b.visit}`] : predictQ(q, x)]));
+  $("slots").innerHTML = `<div class="slot today"><span class="lvl">TODAY'S RULE</span><span class="book">15 <small>min</small></span><span class="raw">same for every visit</span></div>` +
+    QK.map(q => `<div class="slot${q === PICK ? " pick" : ""}"><span class="lvl">${QN[q]}${q === PICK ? " · PROVISIONAL DEFAULT" : ""}</span>` +
+      `<span class="book">${book(raw[q])} <small>min</small></span><span class="raw">model: ${f(raw[q], 1)} min · about ${Math.round(+q * 100)}% of such visits fit</span></div>`).join("");
+  const day = DAYS[b.weekday];
+  $("bkSay").innerHTML = (b.isNew
+      ? `<b>New doctor:</b> the model has no history for them, so this is the typical slot for a ${b.dept} ${b.visit} visit (the department fallback).`
+      : `Dr ${b.doctor} (${b.dept}), ${b.visit} visit, ${day} ${$("fTime").value} at ${b.clinic}, ${b.reports} report${b.reports === 1 ? "" : "s"}${b.interp ? ", interpreter" : ""}${b.tele ? ", video" : ""}, age ${b.ageUnknown ? "unknown" : b.age}.`) +
+    ` The highlighted slot fits about ${Math.round(+PICK * 100)}% of visits like this one; the product owner sets the final safety level.`;
+}
+registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele"]);
+$("bk").addEventListener("submit", e => e.preventDefault());
+
+/* ---------- results: trade-off table ---------- */
+$("nTest").textContent = RS.test_rows.toLocaleString(); $("nTrain").textContent = RS.train_rows.toLocaleString();
+const TR = RS.tradeoff, ROWS = [["today (fixed 15)", "Today: 15 minutes for everyone"], ...QK.map(q => [`Model q=${q}`, `Model ${QN[q]}`])];
+$("tradeoff").innerHTML = ROWS.map(([k, label]) => { const r = TR[k];
+  return `<tr${k === `Model q=${PICK}` ? ' class="pick"' : ""}><td>${label}</td><td class="num">${pct(r.on_time)}</td><td class="num">${f(r.late_min, 2)}</td><td class="num">${f(r.idle_min, 2)}</td><td class="num">${f(r.slot_min, 1)}</td><td class="num">${f(r.patients_per_session, 1)}</td></tr>`; }).join("");
+const t0 = TR["today (fixed 15)"], tp = TR[`Model q=${PICK}`];
+$("tradeSay").innerHTML = `At ${QN[PICK]}, the share of visits finishing within their slot rises from <b>${pct(t0.on_time)}</b> to <b>${pct(tp.on_time)}</b> and late minutes per visit fall from ${f(t0.late_min, 2)} to <b>${f(tp.late_min, 2)}</b>, so the next patient waits far less. ` +
+  `The price is longer slots: ${f(tp.slot_min, 1)} minutes on average, about <b>${f(t0.patients_per_session - tp.patients_per_session, 1)} fewer patients</b> per 4-hour session. Today's 15 minutes already behaves like a P65: it is too short for long visits and too long for short ones.`;
+const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits on time", { xmin: 3, xmax: 5.6, ymin: 0.6, ymax: 0.9 });
+tradeChart.options.scales.y.ticks = { callback: v => pct(v) };
+function paintTrade() {
+  const A = css("--accent"), M2 = css("--muted");
+  tradeChart.data.datasets = [
+    line("Model at P67 / P75 / P80", QK.map(q => ({ x: TR[`Model q=${q}`].idle_min, y: TR[`Model q=${q}`].on_time })), A, { pointRadius: 5 }),
+    { label: "Today (15 min)", data: [{ x: t0.idle_min, y: t0.on_time }], pointRadius: 7, pointStyle: "rectRot", backgroundColor: M2, borderColor: M2 },
+  ];
+  paint(tradeChart);
+}
+registerLab(paintTrade);
+
+/* ---------- quality board ---------- */
+const NAMES = { "today (fixed 15)": "Today: 15 minutes", "B3 lookup table": "Lookup table (doctor + visit type)",
+  "LightGBM": "LightGBM alone", "LightGBM + new-doctor backoff": "Model (LightGBM + new-doctor fallback)", "Oracle (floor)": "Best possible" };
+const rq = segR("data-rq", PICK, () => updBoard());
+function updBoard() {
+  const q = +rq(), rows = RS.board.filter(r => Math.abs(r.q - q) < 1e-9);
+  $("board").innerHTML = rows.map(r => `<tr${r.method.startsWith("LightGBM +") ? ' class="pick"' : ""}><td>${NAMES[r.method]}</td><td class="num">${f(r.pinball, 3)}</td><td class="num">${pct(r.booked_on_time, 1)}</td><td class="num">${f(r.booked_idle_min, 2)}</td></tr>`).join("");
+  const g = n => rows.find(r => r.method === n).pinball, today = g("today (fixed 15)"), model = g("LightGBM + new-doctor backoff"), best = g("Oracle (floor)"), lt = g("B3 lookup table");
+  $("boardSay").innerHTML = `The model closes <b>${pct((today - model) / (today - best))}</b> of the gap between today's rule and the best possible score, and <b>${pct((lt - model) / (lt - best))}</b> of the gap left by the best simple lookup table.`;
+}
+registerLab(updBoard);
+
+/* ---------- slices ---------- */
+const sq = segR("data-sq", PICK, () => updSlices());
+const sliceChart = new Chart($("sliceChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { labels: { boxWidth: 12, font: { family: "IBM Plex Sans", size: 12 } } } },
+  scales: { x: { min: 0, max: 1, ticks: { callback: v => pct(v) }, title: { display: true, text: "visits finishing within their slot" } }, y: {} } } });
+function updSlices() {
+  const S = RS.slices[sq()], dep = S.department, nd = S.doctor_known;
+  const labels = [...Object.keys(dep), "New doctor (no history)"];
+  const val = m => [...Object.values(dep).map(v => v[m].on_time), nd["new doctor (Nikhil Verma)"][m].on_time];
+  sliceChart.data.labels = labels;
+  sliceChart.data.datasets = [
+    { label: "Today (15 min)", data: val("today (fixed 15)"), backgroundColor: hexA(css("--muted"), 0.55) },
+    { label: "Model", data: val("LightGBM + new-doctor backoff"), backgroundColor: hexA(css("--accent"), 0.85) },
+  ];
+  paint(sliceChart);
+  const m = "LightGBM + new-doctor backoff", der = dep.Dermatology[m], newd = nd["new doctor (Nikhil Verma)"], known = nd["known doctors"][m];
+  $("findings").innerHTML = [
+    `<li><b>Known doctors:</b> ${pct(known.on_time)} of visits finish on time with the model, against ${pct(nd["known doctors"]["today (fixed 15)"].on_time)} today. Neurology gains most: today's 15 minutes fits only ${pct(dep.Neurology["today (fixed 15)"].on_time)} of its visits.</li>`,
+    `<li><b>Dermatology</b> is the weak spot (${pct(der.on_time)} on time): its visits got about 3 minutes longer from 1 July, after the training months. Retraining on July data fixes it; a monitor should catch changes like this.</li>`,
+    `<li><b>The new doctor</b> (no visits before July) gets the department fallback: ${pct(newd[m].on_time)} on time, against ${pct(newd["LightGBM"].on_time)} if the model guessed blindly. He is slower than his department's average, so his slots stay short until his own visits are in the training data.</li>`,
+  ].join("");
+}
+registerLab(updSlices);
+
+startLabs();
+</script>

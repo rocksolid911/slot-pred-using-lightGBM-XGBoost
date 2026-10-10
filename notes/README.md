@@ -11,6 +11,8 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 
 **Play with it:** every lesson has its own interactive lab page (sliders, live formulas, charts, heatmaps), listed on the hub [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf): [A1 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc), [A2 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA), [A3 labs](https://claude.ai/artifact/Qwyogp2WiEn824VPTSAWMK), [A4 labs](https://claude.ai/artifact/1u2Bvgmm571WYeeZF7DTut), [A5 labs](https://claude.ai/artifact/CgLBFQoQyi2qeuuAf75qnv), [A6 labs](https://claude.ai/artifact/YGw6XDpTAsFu573Ymgmjmm). Offline copies are in [interactive/](interactive/); open any `.html` in a browser. After changing `slotpred/world.py`, rebuild them with `.venv/Scripts/python.exe notes/interactive/build.py`.
 
+**Monday deliverable:** [OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q): the trained model as a live booking → slot demo, with the July–August results ([A08-final-test.md](A08-final-test.md)).
+
 **Start here:** [00-ml-workflow.md](00-ml-workflow.md), the general ML project lifecycle that every lesson below fits into. For exploring any new dataset, use [00-eda-playbook.md](00-eda-playbook.md).
 
 ## Track A: production model (LightGBM / XGBoost)
@@ -23,8 +25,8 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 | A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | [A04-prepare.md](A04-prepare.md) | ✅ done |
 | A5 | 4 Baseline | Fixed 15 min; department × visit-type median | [A05-baselines.md](A05-baselines.md) | ✅ done |
 | A6 | 5 Train | LightGBM with the quantile objective | [A06-lightgbm.md](A06-lightgbm.md) | ✅ done |
-| A7 | 5 Train | XGBoost comparison | [A07-xgboost.md](A07-xgboost.md) | ▶️ in progress |
-| A8 | 6 Evaluate | Slices, calibration, error analysis | | |
+| A7 | 5 Train | XGBoost comparison | [A07-xgboost.md](A07-xgboost.md) | ✅ code done · ✍️ notebook answers + In my words |
+| A8 | 6 Evaluate | Slices, calibration, error analysis | [A08-final-test.md](A08-final-test.md) | ✅ results ready (study after Monday) |
 | A9 | 7 Select | Tuning, SHAP, fairness slices, model card | | |
 | A10 | Cross-cutting | Experiment tracking with MLflow | | |
 | A11 | 8 Deploy | FastAPI, container, shadow mode | | |

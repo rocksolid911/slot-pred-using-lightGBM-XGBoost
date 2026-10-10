@@ -65,7 +65,8 @@ LESSONS = [
     dict(id="B7", name="Face-off", stage="Track B · learning", summary="LLM vs extractor + LightGBM vs LightGBM."),
 ]
 
-HEAD = """<title>{{TITLE}}</title>
+HEAD = """<meta charset="utf-8">
+<title>{{TITLE}}</title>
 <meta name="description" content="{{DESC}}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -381,6 +382,26 @@ def main():
         print(f"wrote {out.name}")
     (HERE / "index.html").write_text(hub_page(urls, css), encoding="utf-8")
     print("wrote index.html (hub)")
+    demo_page(css, common_js)
+
+
+def demo_page(css, common_js):
+    """The Monday deliverable: the trained model running in the page, plus the July-August results.
+    Needs `python -m slotpred.final` first (outputs/final/)."""
+    from slotpred.config import OUT
+    final = OUT / "final"
+    if not (final / "demo_model.json").exists():
+        print("skipped slot-predictor.html: run python -m slotpred.final first")
+        return
+    data = {"model": json.loads((final / "demo_model.json").read_text(encoding="utf-8")),
+            "results": json.loads((final / "test_results.json").read_text(encoding="utf-8"))}
+    body = (SRC / "demo.html").read_text(encoding="utf-8")
+    footer = "<footer>Built from <code>slotpred/final.py</code> and <code>notes/interactive/build.py</code>. Simulated data; a learning project.</footer>"
+    page = (fill(HEAD, TITLE="OPD Slot Predictor", DESC="Book OPD consult slots from a trained LightGBM model, with results on July–August.", CSS=css)
+            + fill(LIBS, DATA=json.dumps(data, separators=(",", ":")), COMMON_JS=common_js)
+            + f'<div class="wrap">\n{body}\n{footer}\n</div>\n')
+    (HERE / "slot-predictor.html").write_text(page, encoding="utf-8")
+    print("wrote slot-predictor.html")
 
 
 if __name__ == "__main__":
