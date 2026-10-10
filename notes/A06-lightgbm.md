@@ -141,8 +141,8 @@ q is the PO's business setting (A1). The learning rate, number of leaves and min
 
 ## In my words
 1. The A5 backoff rule. A5 says a box with fewer than 30 training visits isn't trusted, because a few visits are mostly luck. min_child_samples = 30 has the same effect inside the trees: every leaf (box) must hold at least 30 training visits. The difference is that LightGBM refuses to make small boxes at all, instead of falling back to a bigger parent box afterwards
-2. The step is learning rate × the tree's value, so 0.05 × 10 = 0.5 minutes. If the tree really means +10 minutes, that would be 0.05 × 10 = 0.5 minutes, not 1. Correct answer: 0.5 minutes, which is 5% of the way. The later trees keep adding small corrections.
+2. The step is learning rate × the tree's value, so 0.05 × 10 = 0.5 minutes, which is 5% of the way. The later trees keep adding small corrections.
 3. Training keeps improving, but June gets worse, which is overfitting. June is data the model hasn't trained on, so when it stops improving, further trees are memorising individual training visits instead of learning patterns that carry over. Stopping there keeps the best number of trees.
-4. ach tree is a rough model of what the previous trees still got wrong, and adding them up in small steps makes the prediction better. Boosting starts from one number (the training P80) and, in each round, adds a small tree that pushes every visit in the direction that lowers the pinball loss. After many small corrections the sum is a good prediction.
+4. Each tree is a rough model of what the previous trees still got wrong, and adding them up in small steps makes the prediction better. Boosting starts from one number (the training P80) and, in each round, adds a small tree that pushes every visit in the direction that lowers the pinball loss. After many small corrections the sum is a good prediction.
 ## New terms
 decision tree, leaf, round, push (gradient), boosting, learning rate, overfitting, early stopping, feature importance (gain), hyperparameter
