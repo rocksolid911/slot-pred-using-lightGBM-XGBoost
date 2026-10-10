@@ -23,7 +23,7 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 | A4 | 3 Prepare | Cleaning, features, train / validation / test split by time | [A04-prepare.md](A04-prepare.md) | ✅ done |
 | A5 | 4 Baseline | Fixed 15 min; department × visit-type median | [A05-baselines.md](A05-baselines.md) | ✅ done |
 | A6 | 5 Train | LightGBM with the quantile objective | [A06-lightgbm.md](A06-lightgbm.md) | ✅ done |
-| A7 | 5 Train | XGBoost comparison | | ▶️ next |
+| A7 | 5 Train | XGBoost comparison | [A07-xgboost.md](A07-xgboost.md) | ▶️ in progress |
 | A8 | 6 Evaluate | Slices, calibration, error analysis | | |
 | A9 | 7 Select | Tuning, SHAP, fairness slices, model card | | |
 | A10 | Cross-cutting | Experiment tracking with MLflow | | |
