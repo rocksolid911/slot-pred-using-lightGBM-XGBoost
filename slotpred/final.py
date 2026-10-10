@@ -30,20 +30,23 @@ from .train_lgbm import fit_one, make_model
 from .world import NOISE_SIGMA
 
 FINAL = OUT / "final"
-SESSION_MIN = 240           # a 4-hour OPD session, to express slots as patients per session
+SESSION_MIN = 240
+# Extra safety levels for the demo page, so the PO can explore beyond the three candidates (A1).
+# Each gets its own model, built the same way: tree count chosen on June, refit on Jan-Jun.
+Q_DEMO = (0.50, 0.60, 0.67, 0.70, 0.75, 0.80, 0.85, 0.90)           # a 4-hour OPD session, to express slots as patients per session
 
 
-def choose_trees(splits, state):
+def choose_trees(splits, state, qs=Q_DEMO):
     """A6 again: train on Jan-May, early-stop on June, return {q: number of trees}."""
     Xtr, ytr = make_xy(splits["train"], state)
     Xva, yva = make_xy(splits["valid"], state)
-    return {q: int(fit_one(q, Xtr, ytr, Xva, yva).best_iteration_) for q in Q_CANDIDATES}
+    return {q: int(fit_one(q, Xtr, ytr, Xva, yva).best_iteration_) for q in qs}
 
 
 def refit(train_valid, state, trees):
     """Final models on Jan-Jun with the June-chosen number of trees (no early stopping, no test data)."""
     X, y = make_xy(train_valid, state)
-    return {q: make_model(q, n_estimators=trees[q]).fit(X, y) for q in Q_CANDIDATES}
+    return {q: make_model(q, n_estimators=n).fit(X, y) for q, n in trees.items()}
 
 
 def booked_summary(y, slot):
@@ -119,16 +122,26 @@ def main():
         by_slice[f"{q:.2f}"] = slices(test, y, {k: preds[k] for k in
                                                 ("today (fixed 15)", "B3 lookup table", "LightGBM", "LightGBM + new-doctor backoff")})
 
+    # every demo q on the test visits (model + new-doctor fallback), for the page's live trade-off table.
+    # Models for different q are trained separately and can cross (a P85 below the P80 for some visit);
+    # taking the running maximum over q keeps them in order, the standard fix ("rearrangement").
+    unseen = ~test["doctor"].isin(state_tv.categories["doctor"]).to_numpy()
+    lookup = {q: GroupQuantile(["department", "visit_type"], q).fit(train_valid).predict(test) for q in Q_DEMO}
+    stack = np.maximum.accumulate(np.array([np.where(unseen, lookup[q], models[q].predict(X_test)) for q in Q_DEMO]), axis=0)
+    demo_test = {"y": [round(float(v), 2) for v in y], "q": [f"{q:.2f}" for q in Q_DEMO],
+                 "pred": {f"{q:.2f}": [round(float(v), 2) for v in row] for q, row in zip(Q_DEMO, stack)}}
+
     FINAL.mkdir(parents=True, exist_ok=True)
     for q, m in models.items():
         m.booster_.save_model(FINAL / f"lgbm_q{q:.2f}.txt")
     results = {"trees": {f"{q:.2f}": t for q, t in trees.items()}, "test_rows": int(len(test)),
-               "train_rows": int(len(train_valid)), "board": board, "tradeoff": tradeoff, "slices": by_slice}
+               "train_rows": int(len(train_valid)), "board": board, "tradeoff": tradeoff, "slices": by_slice,
+               "demo_test": demo_test}
     (FINAL / "test_results.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
 
     backoff = {f"{q:.2f}": {f"{d}|{v}": round(float(x), 3) for (d, v), x in
                             GroupQuantile(["department", "visit_type"], q).fit(train_valid).table_.items()}
-               for q in Q_CANDIDATES}
+               for q in Q_DEMO}
     doctors = train_valid.groupby("doctor")["department"].first().to_dict()
     demo = {"features": FEATURES, "categorical": CATEGORICAL, "categories": state_tv.categories,
             "backoff": backoff, "doctor_department": doctors,

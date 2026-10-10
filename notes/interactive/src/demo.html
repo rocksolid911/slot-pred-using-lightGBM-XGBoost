@@ -22,14 +22,26 @@
       <div class="ctl checks"><label class="check"><input type="checkbox" id="fInterp"> Needs an interpreter</label>
         <label class="check"><input type="checkbox" id="fTele"> Video (tele) consult</label></div>
     </form>
+    <div class="settings">
+      <div class="ctl"><label for="fQ">Safety level (business setting)</label><select id="fQ"></select></div>
+      <div class="ctl"><label for="fGrid">Booking grid (slots are booked in blocks of)</label><select id="fGrid">
+        <option value="1">1 minute (no rounding)</option><option value="5" selected>5 minutes (today's scheduler)</option>
+        <option value="10">10 minutes</option><option value="15">15 minutes</option></select></div>
+    </div>
     <p class="err" id="bkErr" hidden></p>
     <div class="slots" id="slots"></div>
     <p class="say" id="bkSay"></p>
+    <details id="allQ"><summary>This booking at every safety level</summary>
+      <div class="tablewrap"><table>
+        <thead><tr><th>Safety level</th><th class="num">Model's prediction</th><th class="num">Booked slot</th><th>Meaning</th></tr></thead>
+        <tbody id="allQBody"></tbody>
+      </table></div>
+    </details>
   </div>
 
   <div class="lab" id="results">
     <div class="lab-head"><span class="tag">Results</span><h3>July–August: <span id="nTest"></span> visits the model never saw</h3></div>
-    <p class="say">The model was trained on <span id="nTrain"></span> visits from January–June and scored <b>once</b> on July–August. Each row books the model's prediction rounded up to 5 minutes; "today" books 15 minutes for everyone. Which safety level to use (P67, P75 or P80) is the product owner's choice; this table is what they choose from.</p>
+    <p class="say">The model was trained on <span id="nTrain"></span> visits from January–June and scored <b>once</b> on July–August. Each row books the model's prediction rounded up to the <b id="gridName"></b> grid chosen above; "today" books 15 minutes for everyone. Which safety level to use is the product owner's choice (★ marks the three candidates from their answers in A1); this table is what they choose from. Change the grid or safety level above and it updates.</p>
     <div class="tablewrap"><table>
       <thead><tr><th>Booking rule</th><th class="num">Visits on time</th><th class="num">Late min / visit</th><th class="num">Idle min / visit</th><th class="num">Average slot</th><th class="num">Patients per 4 h</th></tr></thead>
       <tbody id="tradeoff"></tbody>
@@ -84,6 +96,7 @@
 .inline { display: flex; gap: 10px; align-items: center; }
 .inline input[type=number] { max-width: 6rem; }
 .checks { align-content: end; }
+.settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: .75rem 1.25rem; padding: .75rem; border: 1px dashed var(--line); border-radius: 8px; }
 .slots { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .6rem; }
 .slot { border: 1px solid var(--line); border-radius: 10px; padding: .75rem .9rem; display: grid; gap: 2px; background: var(--bg); }
 .slot.pick { border-color: var(--accent); background: var(--soft); }
@@ -99,8 +112,12 @@ tr.pick td { font-weight: 600; }
 
 <script>
 const M = D.model, RS = D.results;
-const QK = ["0.67", "0.75", "0.80"], QN = { "0.67": "P67", "0.75": "P75", "0.80": "P80" };
+const QK = ["0.67", "0.75", "0.80"], QN = q => "P" + Math.round(+q * 100);
+const QD = RS.demo_test.q, PO = new Set(QK);
 const PICK = "0.75";   /* provisional default (config.Q_SAFE) until the product owner chooses */
+$("fQ").innerHTML = QD.map(q => `<option value="${q}">${QN(q)}${q === "0.50" ? " · typical length (median)" : ""}${PO.has(q) ? " ★ PO candidate" : ""}${q === PICK ? " (provisional default)" : ""}</option>`).join("");
+$("fQ").value = PICK;
+const qSel = () => $("fQ").value, grid = () => +$("fGrid").value;
 const segR = (attr, init, fn) => { let v = init; document.querySelectorAll(`[${attr}]`).forEach(b => b.addEventListener("click", () => {
   v = b.getAttribute(attr); document.querySelectorAll(`[${attr}]`).forEach(x => x.setAttribute("aria-pressed", x === b)); fn(v); })); return () => v; };
 
@@ -113,7 +130,7 @@ function walk(n, x) {
   return n.v;
 }
 const predictQ = (q, x) => M.models[q].reduce((s, t) => s + walk(t, x), 0);
-const book = p => Math.max(Math.ceil(p / M.grid - 1e-9) * M.grid, M.grid);
+const book = (p, g = grid()) => Math.max(Math.ceil(p / g - 1e-9) * g, g);
 
 /* ---------- the form ---------- */
 const byDept = {};
@@ -151,38 +168,63 @@ function updDemo() {
   err.hidden = !problem; err.textContent = problem;
   if (problem) { $("slots").innerHTML = ""; $("bkSay").textContent = ""; return; }
   const x = encode(b);
-  const raw = Object.fromEntries(QK.map(q => [q, b.isNew ? M.backoff[q][`${b.dept}|${b.visit}`] : predictQ(q, x)]));
-  $("slots").innerHTML = `<div class="slot today"><span class="lvl">TODAY'S RULE</span><span class="book">15 <small>min</small></span><span class="raw">same for every visit</span></div>` +
-    QK.map(q => `<div class="slot${q === PICK ? " pick" : ""}"><span class="lvl">${QN[q]}${q === PICK ? " · PROVISIONAL DEFAULT" : ""}</span>` +
-      `<span class="book">${book(raw[q])} <small>min</small></span><span class="raw">model: ${f(raw[q], 1)} min · about ${Math.round(+q * 100)}% of such visits fit</span></div>`).join("");
+  /* one model per safety level; the running maximum keeps a higher level from predicting less */
+  let run = -Infinity;
+  const raw = Object.fromEntries(QD.map(k => { const v = b.isNew ? M.backoff[k][`${b.dept}|${b.visit}`] : predictQ(k, x); run = Math.max(run, v); return [k, run]; }));
+  const q = qSel(), g = grid();
+  $("slots").innerHTML =
+    `<div class="slot today"><span class="lvl">TODAY'S RULE</span><span class="book">15 <small>min</small></span><span class="raw">same for every visit</span></div>` +
+    `<div class="slot"><span class="lvl">TYPICAL LENGTH (P50)</span><span class="book">${f(raw["0.50"], 1)} <small>min</small></span><span class="raw">half of such visits are shorter</span></div>` +
+    `<div class="slot pick"><span class="lvl">BOOK AT ${QN(q)}${PO.has(q) ? " ★" : ""}</span><span class="book">${book(raw[q])} <small>min</small></span>` +
+    `<span class="raw">model: ${f(raw[q], 1)} min, rounded up to ${g === 1 ? "the minute" : g + "-minute blocks"} · about ${Math.round(+q * 100)}% of such visits fit</span></div>`;
+  $("allQBody").innerHTML = QD.map(k => `<tr${k === q ? ' class="pick"' : ""}><td>${QN(k)}${PO.has(k) ? " ★" : ""}</td><td class="num">${f(raw[k], 1)} min</td><td class="num">${book(raw[k])} min</td>` +
+    `<td>${k === "0.50" ? "half of such visits run longer" : "about " + (100 - Math.round(+k * 100)) + " in 100 run longer"}</td></tr>`).join("");
   const day = DAYS[b.weekday];
   $("bkSay").innerHTML = (b.isNew
       ? `<b>New doctor:</b> the model has no history for them, so this is the typical slot for a ${b.dept} ${b.visit} visit (the department fallback).`
       : `Dr ${b.doctor} (${b.dept}), ${b.visit} visit, ${day} ${$("fTime").value} at ${b.clinic}, ${b.reports} report${b.reports === 1 ? "" : "s"}${b.interp ? ", interpreter" : ""}${b.tele ? ", video" : ""}, age ${b.ageUnknown ? "unknown" : b.age}.`) +
-    ` The highlighted slot fits about ${Math.round(+PICK * 100)}% of visits like this one; the product owner sets the final safety level.`;
+    (g > 1 && book(raw["0.50"]) === book(raw["0.90"]) ? ` Every safety level books the same ${book(raw[q])} minutes here: from P50 to P90 the predictions differ by less than one ${g}-minute block.` : "") +
+    ` The product owner sets the final safety level.`;
+  updTrade();
 }
-registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele"]);
+registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele", "fQ", "fGrid"]);
 $("bk").addEventListener("submit", e => e.preventDefault());
 
 /* ---------- results: trade-off table ---------- */
 $("nTest").textContent = RS.test_rows.toLocaleString(); $("nTrain").textContent = RS.train_rows.toLocaleString();
-const TR = RS.tradeoff, ROWS = [["today (fixed 15)", "Today: 15 minutes for everyone"], ...QK.map(q => [`Model q=${q}`, `Model ${QN[q]}`])];
-$("tradeoff").innerHTML = ROWS.map(([k, label]) => { const r = TR[k];
-  return `<tr${k === `Model q=${PICK}` ? ' class="pick"' : ""}><td>${label}</td><td class="num">${pct(r.on_time)}</td><td class="num">${f(r.late_min, 2)}</td><td class="num">${f(r.idle_min, 2)}</td><td class="num">${f(r.slot_min, 1)}</td><td class="num">${f(r.patients_per_session, 1)}</td></tr>`; }).join("");
-const t0 = TR["today (fixed 15)"], tp = TR[`Model q=${PICK}`];
-$("tradeSay").innerHTML = `At ${QN[PICK]}, the share of visits finishing within their slot rises from <b>${pct(t0.on_time)}</b> to <b>${pct(tp.on_time)}</b> and late minutes per visit fall from ${f(t0.late_min, 2)} to <b>${f(tp.late_min, 2)}</b>, so the next patient waits far less. ` +
-  `The price is longer slots: ${f(tp.slot_min, 1)} minutes on average, about <b>${f(t0.patients_per_session - tp.patients_per_session, 1)} fewer patients</b> per 4-hour session. Today's 15 minutes already behaves like a P65: it is too short for long visits and too long for short ones.`;
-const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits on time", { xmin: 3, xmax: 5.6, ymin: 0.6, ymax: 0.9 });
+const DT = RS.demo_test, Y = DT.y;
+function summarise(slotOf) {
+  let on = 0, late = 0, idle = 0, slot = 0;
+  Y.forEach((y, i) => { const sl = slotOf(i); on += y <= sl; late += Math.max(y - sl, 0); idle += Math.max(sl - y, 0); slot += sl; });
+  const n = Y.length; return { on_time: on / n, late_min: late / n, idle_min: idle / n, slot_min: slot / n, patients: 240 / (slot / n) };
+}
+const TODAY = summarise(() => 15);
+const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits on time", { ymax: 1 });
 tradeChart.options.scales.y.ticks = { callback: v => pct(v) };
-function paintTrade() {
-  const A = css("--accent"), M2 = css("--muted");
+function updTrade() {
+  const g = grid(), q = qSel();
+  $("gridName").textContent = g === 1 ? "1-minute" : g + "-minute";
+  const rows = QD.map(k => [k, summarise(i => book(DT.pred[k][i], g))]);
+  const cell = r => `<td class="num">${pct(r.on_time)}</td><td class="num">${f(r.late_min, 2)}</td><td class="num">${f(r.idle_min, 2)}</td><td class="num">${f(r.slot_min, 1)}</td><td class="num">${f(r.patients, 1)}</td>`;
+  $("tradeoff").innerHTML = `<tr><td>Today: 15 minutes for everyone</td>${cell(TODAY)}</tr>` +
+    rows.map(([k, r]) => `<tr${k === q ? ' class="pick"' : ""}><td>Model ${QN(k)}${PO.has(k) ? " ★" : ""}</td>${cell(r)}</tr>`).join("");
+  const tp = rows.find(r => r[0] === q)[1];
+  $("tradeSay").innerHTML = `At ${QN(q)} on a ${g === 1 ? "1-minute" : g + "-minute"} grid, <b>${pct(tp.on_time)}</b> of visits finish within their slot (today ${pct(TODAY.on_time)}) and late minutes per visit are <b>${f(tp.late_min, 2)}</b> (today ${f(TODAY.late_min, 2)}). ` +
+    (tp.patients < TODAY.patients ? `The price: ${f(tp.slot_min, 1)}-minute slots on average, about <b>${f(TODAY.patients - tp.patients, 1)} fewer patients</b> per 4-hour session.`
+                                  : `Slots average ${f(tp.slot_min, 1)} minutes: <b>${f(tp.patients - TODAY.patients, 1)} more patients</b> per 4-hour session than today.`) +
+    ` Higher safety levels and coarser grids both buy punctuality with idle time.`;
+  const A = css("--accent"), M2 = css("--muted"), L = css("--late");
+  const pts = rows.map(([, r]) => ({ x: r.idle_min, y: r.on_time }));
   tradeChart.data.datasets = [
-    line("Model at P67 / P75 / P80", QK.map(q => ({ x: TR[`Model q=${q}`].idle_min, y: TR[`Model q=${q}`].on_time })), A, { pointRadius: 5 }),
-    { label: "Today (15 min)", data: [{ x: t0.idle_min, y: t0.on_time }], pointRadius: 7, pointStyle: "rectRot", backgroundColor: M2, borderColor: M2 },
+    line("Model, P50 → P90", pts, A, { pointRadius: 3 }),
+    { label: "Chosen: " + QN(q), data: [{ x: tp.idle_min, y: tp.on_time }], pointRadius: 7, backgroundColor: L, borderColor: L },
+    { label: "Today (15 min)", data: [{ x: TODAY.idle_min, y: TODAY.on_time }], pointRadius: 7, pointStyle: "rectRot", backgroundColor: M2, borderColor: M2 },
   ];
+  const xs = [...pts.map(p => p.x), TODAY.idle_min], ys = [...pts.map(p => p.y), TODAY.on_time];
+  tradeChart.options.scales.x.min = Math.floor(Math.min(...xs)); tradeChart.options.scales.x.max = Math.ceil(Math.max(...xs));
+  tradeChart.options.scales.y.min = Math.max(0, Math.floor(Math.min(...ys) * 20) / 20);
   paint(tradeChart);
 }
-registerLab(paintTrade);
 
 /* ---------- quality board ---------- */
 const NAMES = { "today (fixed 15)": "Today: 15 minutes", "B3 lookup table": "Lookup table (doctor + visit type)",
