@@ -86,7 +86,7 @@ The model relies heavily on the doctor column; for a doctor it never saw, its tr
 </details>
 
 ## In my words
-<!-- After Monday: what the final number means, and what you'd tell the PO, in 3 lines. -->
+The model improves on-time bookings to 84% at P75, but sees fewer patients per session; testing also revealed data drift and new-doctor risks.
 
 ## New terms
 test set (used once), refit on train + valid, trade-off table, cold start fallback, drift (seen in numbers)

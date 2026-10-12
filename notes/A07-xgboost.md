@@ -30,7 +30,7 @@
 | | LightGBM | XGBoost |
 |---|---|---|
 | Trees kept (q = 0.67 / 0.75 / 0.80) | 140 / 137 / 184 | 537 / 593 / 477 |
-| Time for all three q | 0.9 s | 4.9 s |
+| Time for all three q | 0.8 s | 4.1 s |
 | Coverage at q = 0.8 | 0.791 | 0.794 |
 
 - The two models' P80s differ by only **0.36–0.44 minutes** per visit on average; the **booked slots are identical for 91–93%** of June visits. Two libraries found the same pattern.
@@ -42,18 +42,19 @@
 
 ## Self-check
 
-<details><summary>Q1. What makes a comparison between two models fair?</summary>
+<details><summary>Q1. What were XGBoost's scores at q = 0.67, 0.75 and 0.80, and how should you read them?</summary>
 
-Same training rows, same columns, same q, same early-stopping data, same score and same evaluation month. Only the thing being compared may change.
+XGBoost scored 1.416, 1.289 and 1.163, respectively. A lower score is better.
 </details>
 
-<details><summary>Q2. Leaf-wise vs level-wise, in one sentence each?</summary>
+<details><summary>Q2. Which model would you take forward, and why?</summary>
 
-LightGBM always splits the one box that lowers the score most; XGBoost splits every box at the current depth before going deeper.
+I would take LightGBM forward. It has a lower score at all three q values, while `booked_on_time` is almost the same for both models. It is also faster (0.8 s versus 4.1 s), and the models agree on the booked slot for 91–93% of visits. That agreement suggests the result is not just an artifact of one library.
 </details>
 
 ## In my words
-<!-- Written by you: which model goes forward, and why, in 2-3 lines. -->
+1. Both models beat the baseline by a lot and land close to the oracle. Their similar results provide a second opinion, making it less likely that the improvement is just luck from one model.
+2. LightGBM goes forward to A8: it has a slightly lower pinball score at every q, while `booked_on_time` is almost identical. It is also much faster (0.8 s vs 4.1 s), and both models choose the same slot for 91–93% of visits.
 
 ## New terms
 leaf-wise growth, level-wise growth, fair comparison, second opinion (model agreement)
