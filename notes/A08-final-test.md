@@ -1,6 +1,6 @@
 # A8 · The final test: one honest look at July–August (lifecycle stage 6: Evaluate)
 
-> **Date:** 2026-10-11 · **Code:** [final.py](../slotpred/final.py) (written by Claude, deadline) · **Results page:** [OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q) · **Git tag:** `lesson-A8`
+> **Date:** 2026-10-11 · **Code:** [final.py](../slotpred/final.py) (written by Claude, deadline) · **Results page:** [OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q) · **Lab page:** [A8 Final Test Lab](https://claude.ai/artifact/L2zqZxrAXMbifjV7qUQPLQ) · **Git tag:** `lesson-A8`
 
 ## Where this fits
 

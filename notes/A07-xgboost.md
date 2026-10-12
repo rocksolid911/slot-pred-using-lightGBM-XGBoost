@@ -1,6 +1,6 @@
 # A7 · XGBoost: a second opinion, compared fairly (lifecycle stage 5: Train)
 
-> **Date:** 2026-10-11 · **Notebook:** [notebooks/A07_xgboost.ipynb](../notebooks/A07_xgboost.ipynb) · **Code:** [train_xgb.py](../slotpred/train_xgb.py) (written by Claude, deadline) · **Git tag:** `lesson-A7`
+> **Date:** 2026-10-11 · **Notebook:** [notebooks/A07_xgboost.ipynb](../notebooks/A07_xgboost.ipynb) · **Code:** [train_xgb.py](../slotpred/train_xgb.py) (written by Claude, deadline) · **Lab page:** [A7 XGBoost Lab](https://claude.ai/artifact/TaYVHKoQexdPxaqWcjhjf7) · **Git tag:** `lesson-A7`
 
 ## Where this fits
 

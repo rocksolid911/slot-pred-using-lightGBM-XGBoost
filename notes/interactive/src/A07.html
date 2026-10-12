@@ -1,0 +1,162 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-grow">7.1 Leaf by leaf vs level by level</a>
+  <a href="#lab-compare">7.2 Your fair comparison on June</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>A second opinion, compared fairly</h2>
+    <p>Same rows, same columns, same q, same early stopping on June, same score: only the library changes. If a second model lands close by, trust the result more; then take the better one forward. The one real difference between LightGBM and XGBoost is how each tree grows.</p>
+  </div>
+
+  <div class="lab" id="lab-grow">
+    <div class="lab-head"><span class="tag">Lab 7.1</span><h3>How a tree grows: leaf by leaf vs level by level</h3></div>
+    <p class="say">1,200 simulated visits described by two columns: prior reports (across) and patient age (up). Visits with many reports, and patients aged 65+, take longer. Each tree cuts this map into boxes and books each box's P80. <b>LightGBM</b> always splits the one box where a split lowers the score most. <b>XGBoost</b> splits every box on the current level, then goes one level deeper. Give both the same number of boxes and compare.</p>
+    <div class="controls">
+      <div class="ctl"><label for="grLeaves">Boxes allowed <output id="grLeavesOut"></output></label><input type="range" id="grLeaves" min="1" max="16" step="1" value="4"></div>
+    </div>
+    <div class="grid2">
+      <figure><figcaption>LightGBM: leaf by leaf</figcaption><canvas id="grLeaf" width="360" height="260" aria-label="Boxes made leaf by leaf"></canvas><p class="sub" id="grLeafScore"></p></figure>
+      <figure><figcaption>XGBoost: level by level</figcaption><canvas id="grLevel" width="360" height="260" aria-label="Boxes made level by level"></canvas><p class="sub" id="grLevelScore"></p></figure>
+    </div>
+    <p class="say" id="grSay"></p>
+  </div>
+
+  <div class="lab" id="lab-compare">
+    <div class="lab-head"><span class="tag">Lab 7.2</span><h3>Your fair comparison on June</h3></div>
+    <div class="seg" role="group" aria-label="q">
+      <button type="button" data-xq="0.67" aria-pressed="false">q = 0.67</button>
+      <button type="button" data-xq="0.75" aria-pressed="false">q = 0.75</button>
+      <button type="button" data-xq="0.8" aria-pressed="true">q = 0.80</button>
+    </div>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Model</th><th class="num">Score</th><th class="num">Coverage</th><th class="num">On time (booked)</th><th class="num">Trees kept</th><th class="num">Time, all 3 q</th></tr></thead>
+      <tbody id="cmpTable"></tbody>
+    </table></div>
+    <div class="stats">
+      <div class="stat"><span>Average gap per visit</span><strong id="cmpGap"></strong></div>
+      <div class="stat"><span>Same booked slot</span><strong id="cmpSame"></strong></div>
+    </div>
+    <div class="chart short"><canvas id="cmpChart" aria-label="Difference between the two models' predictions per June visit"></canvas></div>
+    <p class="say" id="cmpSay"></p>
+  </div>
+</section>
+
+<style>
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.grid2 figure { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.grid2 figcaption { font: 500 13px var(--f-mono); color: var(--muted); }
+.grid2 canvas { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+</style>
+
+<script>
+const X7 = D.xgb;
+
+/* ---------- Lab 7.1: grow trees two ways on a toy map ---------- */
+function rng7(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const g7 = rng7(21), Q7 = 0.8;
+const truth = (r, a) => (12 + 1.3 * Math.min(r, 8)) * (a >= 65 ? 1.15 : 1) + (r >= 6 ? 3 : 0);
+const make = n => Array.from({ length: n }, () => { const r = g7() * 10, a = g7() * 90, u1 = g7() || 1e-9, u2 = g7();
+  const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); return { r, a, y: truth(r, a) * Math.exp(-0.0392 + 0.28 * z) }; });
+const TRAIN7 = make(1200), TEST7 = make(1200);
+const qpt = ys => { const s = [...ys].sort((a, b) => a - b), i = (s.length - 1) * Q7, lo = Math.floor(i), hi = Math.ceil(i); return s[lo] + (s[hi] - s[lo]) * (i - lo); };
+const pin = (ys, p) => ys.reduce((s, y) => s + (y > p ? Q7 * (y - p) : (1 - Q7) * (p - y)), 0);
+/* a box = {r0, r1, a0, a1, pts}; its best split = the cut that lowers the summed score most (min 30 visits per side) */
+function bestSplit(box) {
+  const base = pin(box.pts.map(p => p.y), qpt(box.pts.map(p => p.y)));
+  let best = null;
+  for (const [k, lo, hi] of [["r", box.r0, box.r1], ["a", box.a0, box.a1]]) {
+    for (let i = 1; i < 12; i++) {
+      const t = lo + (hi - lo) * i / 12, L = box.pts.filter(p => p[k] < t), R = box.pts.filter(p => p[k] >= t);
+      if (L.length < 30 || R.length < 30) continue;
+      const after = pin(L.map(p => p.y), qpt(L.map(p => p.y))) + pin(R.map(p => p.y), qpt(R.map(p => p.y)));
+      if (!best || base - after > best.gain) best = { k, t, gain: base - after, L, R };
+    }
+  }
+  return best;
+}
+function child(box, s, side) { const b = { ...box, pts: side ? s.R : s.L }; if (s.k === "r") side ? (b.r0 = s.t) : (b.r1 = s.t); else side ? (b.a0 = s.t) : (b.a1 = s.t); return b; }
+const root = () => ({ r0: 0, r1: 10, a0: 0, a1: 90, pts: TRAIN7 });
+function leafWise(n) {
+  let boxes = [root()];
+  while (boxes.length < n) {
+    const cand = boxes.map(b => [b, bestSplit(b)]).filter(c => c[1]);
+    if (!cand.length) break;
+    const [b, s] = cand.reduce((x, y) => y[1].gain > x[1].gain ? y : x);
+    boxes = boxes.filter(x => x !== b).concat([child(b, s, 0), child(b, s, 1)]);
+  }
+  return boxes;
+}
+function levelWise(n) {
+  let boxes = [root()];
+  while (boxes.length < n) {
+    const next = [];
+    let room = n - boxes.length;            /* only as many splits as boxes allowed: the last level may stay partial */
+    for (const b of boxes) { const s = room > 0 ? bestSplit(b) : null; if (s) { next.push(child(b, s, 0), child(b, s, 1)); room--; } else next.push(b); }
+    if (next.length === boxes.length) break;
+    boxes = next;
+  }
+  return boxes;
+}
+function score(boxes) {
+  const vals = boxes.map(b => ({ ...b, v: qpt(b.pts.map(p => p.y)) }));
+  const find = p => vals.find(b => p.r >= b.r0 && p.r < b.r1 + 1e-9 && p.a >= b.a0 && p.a < b.a1 + 1e-9) || vals[0];
+  return { vals, test: TEST7.reduce((s, p) => s + pin([p.y], find(p).v), 0) / TEST7.length };
+}
+function draw(canvasId, vals) {
+  const c = $(canvasId), ctx = c.getContext("2d"), W = c.width, H = c.height, pad = 26;
+  ctx.clearRect(0, 0, W, H);
+  const lo = 12, hi = 40, A = css("--accent"), INK = css("--ink"), MU = css("--muted");
+  const sx = r => pad + (r / 10) * (W - pad - 6), sy = a => H - pad - (a / 90) * (H - pad - 6);
+  for (const b of vals) {
+    const t = Math.max(0, Math.min(1, (b.v - lo) / (hi - lo)));
+    ctx.fillStyle = hexA(A, 0.12 + 0.75 * t);
+    ctx.fillRect(sx(b.r0), sy(b.a1), sx(b.r1) - sx(b.r0), sy(b.a0) - sy(b.a1));
+    ctx.strokeStyle = INK; ctx.lineWidth = 1; ctx.strokeRect(sx(b.r0), sy(b.a1), sx(b.r1) - sx(b.r0), sy(b.a0) - sy(b.a1));
+    if (sx(b.r1) - sx(b.r0) > 34 && sy(b.a0) - sy(b.a1) > 16) {
+      ctx.fillStyle = INK; ctx.font = "11px IBM Plex Mono, monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(b.v.toFixed(0), (sx(b.r0) + sx(b.r1)) / 2, (sy(b.a0) + sy(b.a1)) / 2);
+    }
+  }
+  ctx.fillStyle = MU; ctx.font = "10px IBM Plex Sans, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "top";
+  ctx.fillText("prior reports →", W / 2, H - 14);
+  ctx.save(); ctx.translate(9, H / 2); ctx.rotate(-Math.PI / 2); ctx.fillText("age →", 0, -4); ctx.restore();
+}
+bindOut("grLeaves", v => v);
+registerLab(function updGrow() {
+  const n = +$("grLeaves").value, a = score(leafWise(n)), b = score(levelWise(n));
+  draw("grLeaf", a.vals); draw("grLevel", b.vals);
+  $("grLeafScore").textContent = `${a.vals.length} boxes · score on new visits ${f(a.test, 3)}`;
+  $("grLevelScore").textContent = `${b.vals.length} boxes · score on new visits ${f(b.test, 3)}`;
+  const d = b.test - a.test;
+  $("grSay").innerHTML = n === 1 ? "One box: both book the same P80 for everyone (like B1 in A5)."
+    : `Numbers in the boxes are each box's P80 in minutes. Leaf by leaf spends its splits where they help most (many reports, age 65+); level by level must split every box on a level, even boxes that hardly need it. ` +
+      (Math.abs(d) < 0.005 ? "Here both end up equally good." : d > 0 ? `With ${n} boxes, leaf by leaf scores <b>${f(d, 3)}</b> better on new visits.` : `Here level by level happens to score ${f(-d, 3)} better: leaf by leaf can chase noise when boxes get small, which is why LightGBM needs a minimum box size.`) +
+      ` Real trees do this over 11 columns and hundreds of rounds, so the gap mostly disappears: on your data the two libraries end within 0.01–0.015.`;
+}, ["grLeaves"]);
+
+/* ---------- Lab 7.2: the real June comparison ---------- */
+let xq = "0.8";
+document.querySelectorAll("[data-xq]").forEach(b => b.addEventListener("click", () => {
+  xq = b.dataset.xq; document.querySelectorAll("[data-xq]").forEach(x => x.setAttribute("aria-pressed", x === b)); updCmp();
+}));
+const cmpChart = new Chart($("cmpChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
+  scales: { x: { title: { display: true, text: "LightGBM minus XGBoost, minutes (per June visit)" } }, y: { title: { display: true, text: "visits" } } } } });
+function updCmp() {
+  const rows = X7.rows.filter(r => Math.abs(r.q - +xq) < 1e-9), key = (+xq).toFixed(2), qs = String(+xq);
+  const tr = n => X7.trees[n][qs] ?? X7.trees[n][key];
+  $("cmpTable").innerHTML = rows.map(r => `<tr${r.method === "LightGBM" ? ' class="total"' : ""}><td>${r.method}</td><td class="num">${f(r.pinball, 3)}</td><td class="num">${f(r.coverage, 3)}</td><td class="num">${pct(r.booked_on_time, 1)}</td><td class="num">${tr(r.method)}</td><td class="num">${X7.seconds[r.method]} s</td></tr>`).join("");
+  const ag = X7.agree[qs] ?? X7.agree[key];
+  $("cmpGap").textContent = f(ag.mean_abs, 2) + " min"; $("cmpSame").textContent = pct(ag.same_slot);
+  const L = rows.find(r => r.method === "LightGBM"), Xg = rows.find(r => r.method === "XGBoost");
+  $("cmpSay").innerHTML = `${L.pinball < Xg.pinball ? "LightGBM" : "XGBoost"} scores lower by ${f(Math.abs(L.pinball - Xg.pinball), 3)}. The two predictions differ by ${f(ag.mean_abs, 2)} minutes per visit on average, and they book the <b>same 5-minute slot for ${pct(ag.same_slot)}</b> of June visits: two different libraries found the same pattern. ` +
+    `Decision (A7): LightGBM goes forward: lower score at every q, faster, fewer trees. The choice was made on June; the test months were never used to choose.`;
+  cmpChart.data.labels = ag.hist.map((_, i) => (-3 + i * 0.25 + 0.125).toFixed(2));
+  cmpChart.data.datasets = [{ data: ag.hist, backgroundColor: hexA(css("--accent"), 0.75), borderWidth: 0, barPercentage: 1, categoryPercentage: 1 }];
+  paint(cmpChart);
+}
+registerLab(updCmp);
+
+startLabs();
+</script>

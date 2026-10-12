@@ -49,8 +49,14 @@ LESSONS = [
          name="LightGBM quantile model", stage="Stage 5 · Train", note="notes/A06-lightgbm.md",
          summary="Boosting: many small trees, each nudging visits towards their q-point; early stopping on June; one model per q.",
          labs=["Boosting round by round", "Training curve", "LightGBM vs baselines"]),
-    dict(id="A7", status="now", name="XGBoost comparison", stage="Stage 5 · Train", summary="Same idea, different library; keep the winner."),
-    dict(id="A8", name="Evaluation", stage="Stage 6 · Evaluate", summary="Slices, calibration, error analysis, and the PO's trade-off table."),
+    dict(id="A7", slug="A07-xgboost", src="A07.html", status="now", data=True, title="A7 XGBoost Lab",
+         name="XGBoost comparison", stage="Stage 5 · Train", note="notes/A07-xgboost.md",
+         summary="A second model trained the same way: leaf-by-leaf vs level-by-level trees, and a fair comparison on June.",
+         labs=["Leaf vs level", "Fair comparison"]),
+    dict(id="A8", slug="A08-final-test", src="A08.html", status="now", data=True, title="A8 Final Test Lab",
+         name="The final test", stage="Stage 6 · Evaluate", note="notes/A08-final-test.md",
+         summary="One honest look at July–August: why only once, the trade-off table for the PO, and the drift June could not show.",
+         labs=["Why only once", "Trade-off table", "Drift and new doctor"]),
     dict(id="A9", name="Tuning, SHAP, fairness", stage="Stage 7 · Select", summary="Did the model find the hidden rule? Model card."),
     dict(id="A10", name="Experiment tracking", stage="Cross-cutting", summary="MLflow runs and model versions."),
     dict(id="A11", name="Serving", stage="Stage 8 · Deploy", summary="FastAPI, container, shadow mode and a fallback."),
@@ -119,6 +125,58 @@ def slot_data():
         "prep": prep_data(),
         "base": baseline_data(),
         "lgbm": lgbm_data(),
+        "xgb": xgb_data(),
+        "final": final_data(),
+    }
+
+
+def xgb_data():
+    """A7: LightGBM vs XGBoost on June, trained the same way, and how much they agree visit by visit."""
+    import time
+
+    from slotpred import train_lgbm, train_xgb
+    from slotpred.config import Q_CANDIDATES
+    from slotpred.features import make_xy
+    from slotpred.metrics import evaluate
+    from slotpred.prepare import load_prepared
+
+    splits, state = load_prepared()
+    Xtr, ytr = make_xy(splits["train"], state)
+    Xva, yva = make_xy(splits["valid"], state)
+    out = {"rows": [], "agree": {}, "trees": {}, "seconds": {}}
+    for name, lib in (("LightGBM", train_lgbm), ("XGBoost", train_xgb)):
+        t = time.time()
+        models = lib.fit_all(Xtr, ytr, Xva, yva, save=False)
+        out["seconds"][name] = round(time.time() - t, 1)
+        out["trees"][name] = {str(q): int(getattr(m, "best_iteration_", None) or m.best_iteration + 1) for q, m in models.items()}
+        out[name] = {str(q): m.predict(Xva) for q, m in models.items()}
+        out["rows"] += [{k: (round(v, 4) if isinstance(v, float) else v) for k, v in evaluate(yva, p, float(q), name).items()}
+                        for q, p in out[name].items()]
+    for q in map(str, Q_CANDIDATES):
+        a, b = out["LightGBM"][q], out["XGBoost"][q]
+        d = a - b
+        out["agree"][q] = {"mean_abs": round(float(np.mean(np.abs(d))), 3),
+                           "same_slot": round(float(np.mean(np.ceil(a / 5 - 1e-9) == np.ceil(b / 5 - 1e-9))), 4),
+                           "hist": np.histogram(np.clip(d, -3, 3), bins=np.arange(-3, 3.01, 0.25))[0].tolist()}
+    del out["LightGBM"], out["XGBoost"]
+    return out
+
+
+def final_data():
+    """A8: the July-August results saved by slotpred/final.py (LightGBM rows only; XGBoost was not chosen)."""
+    from slotpred.config import OUT, Q_CANDIDATES
+    path = OUT / "final" / "test_results.json"
+    if not path.exists():
+        return None
+    r = json.loads(path.read_text(encoding="utf-8"))
+    keep = ("today (fixed 15)", "B3 lookup table", "LightGBM", "LightGBM + new-doctor backoff", "Oracle (floor)")
+    qs = [f"{q:.2f}" for q in Q_CANDIDATES]
+    return {
+        "trees": {q: r["trees"][q] for q in qs}, "test_rows": r["test_rows"], "train_rows": r["train_rows"],
+        "board": [b for b in r["board"] if b["method"] in keep],
+        "tradeoff": {k: v for k, v in r["tradeoff"].items() if k == "today (fixed 15)" or k in {f"Model q={q}" for q in qs}},
+        "slices": {q: {grp: {lvl: {m: {"on_time": v[m]["on_time"], "bias": v[m]["bias"], "n": v[m]["n"]} for m in keep[:4] if m in v}
+                             for lvl, v in levels.items()} for grp, levels in r["slices"][q].items()} for q in qs},
     }
 
 

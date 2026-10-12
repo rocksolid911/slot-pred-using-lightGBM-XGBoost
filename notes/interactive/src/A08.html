@@ -1,0 +1,129 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-peek">8.1 Why look at the test only once</a>
+  <a href="#lab-trade">8.2 The trade-off the PO chooses from</a>
+  <a href="#lab-reveal">8.3 What the test months revealed</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>One honest look at July–August</h2>
+    <p>Every choice was made on June. Then the chosen model was refitted on January–June (with June's tree counts) and scored once on the locked test months. That single score is the answer to "how good is it?". The live demo is the <a href="https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q">OPD Slot Predictor</a>.</p>
+  </div>
+
+  <div class="lab" id="lab-peek">
+    <div class="lab-head"><span class="tag">Lab 8.1</span><h3>Peeking makes the score look better than it is</h3></div>
+    <p class="say">Imagine several model versions that are <b>equally good</b>: each would truly score 1.40 on future visits. Any one test month adds luck, so its measured score wobbles around 1.40. If you try many versions on the test months and keep the one that looks best, you also keep its good luck. Move the slider and see how far the reported score drifts from the truth.</p>
+    <div class="controls">
+      <div class="ctl"><label for="pkK">Versions tried on the test months <output id="pkKOut"></output></label><input type="range" id="pkK" min="1" max="40" step="1" value="1"></div>
+      <div class="ctl"><label for="pkNoise">Luck in one test period (SD of the score) <output id="pkNoiseOut"></output></label><input type="range" id="pkNoise" min="0.01" max="0.08" step="0.01" value="0.03"></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span>True score of every version</span><strong>1.400</strong></div>
+      <div class="stat"><span>Reported (best of the tried)</span><strong id="pkRep"></strong></div>
+      <div class="stat"><span>Too optimistic by</span><strong id="pkGap"></strong></div>
+    </div>
+    <div class="chart short"><canvas id="pkChart" aria-label="Reported score against versions tried"></canvas></div>
+    <p class="say" id="pkSay"></p>
+  </div>
+
+  <div class="lab" id="lab-trade">
+    <div class="lab-head"><span class="tag">Lab 8.2</span><h3>The trade-off table (July–August, 5-minute grid)</h3></div>
+    <p class="say">Each column comes straight from the <span id="trN"></span> test visits: on time = actual ≤ booked slot; late and idle minutes are averaged over all visits; patients per 4 h = 240 ÷ average slot. Which row to use is the PO's decision.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Booking rule</th><th class="num">On time</th><th class="num">Late min / visit</th><th class="num">Idle min / visit</th><th class="num">Average slot</th><th class="num">Patients per 4 h</th></tr></thead>
+      <tbody id="trTable"></tbody>
+    </table></div>
+    <div class="chart short"><canvas id="trChart" aria-label="On time against patients per session"></canvas></div>
+    <p class="say" id="trSay"></p>
+  </div>
+
+  <div class="lab" id="lab-reveal">
+    <div class="lab-head"><span class="tag">Lab 8.3</span><h3>What June could not show: drift and a new doctor</h3></div>
+    <div class="controls">
+      <div class="ctl"><span class="lbl">q</span>
+        <div class="seg" role="group" aria-label="q">
+          <button type="button" data-fq="0.67" aria-pressed="false">0.67</button>
+          <button type="button" data-fq="0.75" aria-pressed="true">0.75</button>
+          <button type="button" data-fq="0.80" aria-pressed="false">0.80</button>
+        </div>
+      </div>
+      <div class="ctl"><span class="lbl">Doctors the model never saw</span>
+        <label class="check"><input type="checkbox" id="fbOn" checked> use the department fallback (A5's backoff)</label>
+      </div>
+    </div>
+    <div class="chart"><canvas id="rvChart" aria-label="Visits on time by department and for the new doctor"></canvas></div>
+    <p class="say" id="rvSay"></p>
+  </div>
+</section>
+
+<script>
+const F8 = D.final;
+
+/* ---------- Lab 8.1: peeking ---------- */
+function rng8(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const normal = g => { const u1 = g() || 1e-9, u2 = g(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2); };
+/* average over 2,000 repeats of "try K versions, report the best" */
+function bestOf(K, sd) { const g = rng8(K * 977 + Math.round(sd * 1000)); let s = 0; for (let r = 0; r < 2000; r++) { let m = Infinity; for (let k = 0; k < K; k++) m = Math.min(m, 1.4 + sd * normal(g)); s += m; } return s / 2000; }
+const pkChart = makeChart("pkChart", "versions tried on the test months", "reported score", { xmin: 1, xmax: 40 });
+bindOut("pkK", v => v); bindOut("pkNoise", v => f(v, 2));
+registerLab(function updPeek() {
+  const K = +$("pkK").value, sd = +$("pkNoise").value, rep = bestOf(K, sd);
+  $("pkRep").textContent = f(rep, 3); $("pkGap").textContent = f(1.4 - rep, 3);
+  $("pkSay").innerHTML = K === 1 ? "One look: the reported score is honest on average (sometimes lucky, sometimes not, but not biased)."
+    : `After trying ${K} versions, the one you keep reports <b>${f(rep, 3)}</b>, but its real future score is still 1.400. The gap (${f(1.4 - rep, 3)}) is pure luck you selected. For scale: LightGBM beat XGBoost on June by about 0.01. That's why every choice was made on June, and July–August was opened once.`;
+  const pts = [1, 2, 3, 5, 8, 12, 20, 30, 40].map(k => ({ x: k, y: bestOf(k, sd) }));
+  const A = css("--accent"), L = css("--late");
+  pkChart.data.datasets = [line("Reported (best of the tried)", pts, A, { pointRadius: 3 }),
+    line("True score of every version", [{ x: 1, y: 1.4 }, { x: 40, y: 1.4 }], L, { borderDash: [5, 4] }),
+    { label: "_now", data: [{ x: K, y: rep }], pointRadius: 7, backgroundColor: A, borderColor: A }];
+  pkChart.options.scales.y.min = 1.4 - 3 * sd; pkChart.options.scales.y.max = 1.4 + 0.5 * sd;
+  paint(pkChart);
+}, ["pkK", "pkNoise"]);
+
+/* ---------- Lab 8.2: trade-off ---------- */
+$("trN").textContent = F8.test_rows.toLocaleString();
+const TRR = [["today (fixed 15)", "Today: 15 minutes for everyone"], ["Model q=0.67", "Model P67"], ["Model q=0.75", "Model P75 (provisional default)"], ["Model q=0.80", "Model P80"]];
+$("trTable").innerHTML = TRR.map(([k, label]) => { const r = F8.tradeoff[k];
+  return `<tr${k === "Model q=0.75" ? ' class="total"' : ""}><td>${label}</td><td class="num">${pct(r.on_time)}</td><td class="num">${f(r.late_min, 2)}</td><td class="num">${f(r.idle_min, 2)}</td><td class="num">${f(r.slot_min, 1)}</td><td class="num">${f(r.patients_per_session, 1)}</td></tr>`; }).join("");
+const t0 = F8.tradeoff["today (fixed 15)"], t75 = F8.tradeoff["Model q=0.75"];
+$("trSay").innerHTML = `Reading the P75 row: on-time visits rise from ${pct(t0.on_time)} to <b>${pct(t75.on_time)}</b>, late minutes per visit fall from ${f(t0.late_min, 2)} to <b>${f(t75.late_min, 2)}</b> (about ${f(t0.late_min / t75.late_min, 1)}× less waiting), and the doctor sees about ${f(t0.patients_per_session - t75.patients_per_session, 1)} fewer patients per 4-hour session. More safety costs more idle time: the PO decides where to stand.`;
+const trChart = makeChart("trChart", "patients per 4-hour session", "visits on time", {});
+trChart.options.scales.y.ticks = { callback: v => pct(v) };
+registerLab(function paintTrade8() {
+  const A = css("--accent"), M2 = css("--muted");
+  trChart.data.datasets = [
+    line("Model P67 → P75 → P80", TRR.slice(1).map(([k]) => ({ x: F8.tradeoff[k].patients_per_session, y: F8.tradeoff[k].on_time })), A, { pointRadius: 5 }),
+    { label: "Today (15 min)", data: [{ x: t0.patients_per_session, y: t0.on_time }], pointRadius: 7, pointStyle: "rectRot", backgroundColor: M2, borderColor: M2 },
+  ];
+  paint(trChart);
+});
+
+/* ---------- Lab 8.3: what the test months revealed ---------- */
+let fq = "0.75";
+document.querySelectorAll("[data-fq]").forEach(b => b.addEventListener("click", () => {
+  fq = b.dataset.fq; document.querySelectorAll("[data-fq]").forEach(x => x.setAttribute("aria-pressed", x === b)); updReveal();
+}));
+const rvChart = new Chart($("rvChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { labels: { boxWidth: 12, font: { family: "IBM Plex Sans", size: 12 } } } },
+  scales: { x: { min: 0, max: 1, ticks: { callback: v => pct(v) }, title: { display: true, text: "visits finishing within their booked slot (July–August)" } }, y: {} } } });
+function updReveal() {
+  const S = F8.slices[fq], dep = S.department, nd = S.doctor_known["new doctor (Nikhil Verma)"], fb = $("fbOn").checked;
+  const m = fb ? "LightGBM + new-doctor backoff" : "LightGBM";
+  const labels = [...Object.keys(dep), "New doctor (no history)"];
+  const val = k => [...Object.values(dep).map(v => v[k].on_time), nd[k].on_time];
+  rvChart.data.labels = labels;
+  rvChart.data.datasets = [
+    { label: "Today (15 min)", data: val("today (fixed 15)"), backgroundColor: hexA(css("--muted"), 0.55) },
+    { label: fb ? "Model (with fallback)" : "LightGBM alone", data: val(m), backgroundColor: hexA(css("--accent"), 0.85) },
+  ];
+  paint(rvChart);
+  const der = dep.Dermatology[m].on_time, others = Object.entries(dep).filter(([k]) => k !== "Dermatology").map(([, v]) => v[m].on_time);
+  $("rvSay").innerHTML = `<b>Dermatology</b>: ${pct(der)} on time vs ${pct(Math.min(...others))}–${pct(Math.max(...others))} for the other departments. Its visits got about 3 minutes longer from 1 July (A2's drift), after the training months. Fix: retrain with July data (A13) and a monitor that notices (A12). ` +
+    `<b>New doctor</b>: ${pct(nd[m].on_time)} on time ${fb ? "with the department fallback" : "with LightGBM alone"} (the other option gives ${pct(nd[fb ? "LightGBM" : "LightGBM + new-doctor backoff"].on_time)}). ${fb ? "" : "The model leans on the doctor column; for a doctor it never saw, its trees take an arbitrary path. Tick the fallback. "}He is also slower than his department's average, which only his own visits can teach after retraining.`;
+}
+$("fbOn").addEventListener("change", updReveal);
+registerLab(updReveal);
+
+startLabs();
+</script>
