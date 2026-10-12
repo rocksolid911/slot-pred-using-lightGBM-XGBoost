@@ -14,7 +14,7 @@ import pandas as pd
 
 # Known at booking time (notes/A04-prepare.md, section 5). Everything else stays out of the model.
 CATEGORICAL = ["department", "visit_type", "doctor", "clinic"]
-NUMERIC = ["age", "age_missing", "interpreter", "teleconsult", "prior_reports", "weekday", "hour"]
+NUMERIC = ["age", "age_missing", "teleconsult", "prior_reports", "weekday", "hour"]
 FEATURES = CATEGORICAL + NUMERIC
 FORBIDDEN = {"appointment_id", "patient_id", "patient_name", "date", "slot_time",
              "check_in", "consult_start", "consult_end", "minutes"}
@@ -79,8 +79,7 @@ def make_features(df: pd.DataFrame, state: PrepState) -> pd.DataFrame:
     for col in CATEGORICAL:
         known = out[col].where(out[col].isin(state.categories[col]))     # unseen level -> NaN
         out[col] = pd.Categorical(known, categories=state.categories[col])
-    for col in ("interpreter", "teleconsult"):
-        out[col] = out[col].astype(int)
+    out["teleconsult"] = out["teleconsult"].astype(int)
     return out[FEATURES]
 
 

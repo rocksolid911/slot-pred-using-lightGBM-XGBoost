@@ -42,12 +42,12 @@
 | | Method | What it does | Numbers learned |
 |---|---|---|---|
 | B0 | Fixed 15 | 15 minutes for everyone (today's rule) | 0 |
-| B1 | One number | sort all 24,818 training visits, take the q-point | 1 |
-| B2 | Lookup table | one box per department + visit type (8 × 3), take each box's q-point | 24 |
-| B3 | Smaller boxes | one box per doctor + visit type; a box under 30 visits backs off to B2 | 60 |
+| B1 | One number | sort all 24,763 training visits, take the q-point | 1 |
+| B2 | Lookup table | one box per department + visit type (8 × 2), take each box's q-point | 16 |
+| B3 | Smaller boxes | one box per doctor + visit type; a box under 30 visits backs off to B2 | 40 |
 
 ### Why not make the boxes as small as possible?
-Restaurant reviews: a rating from 4 reviews is luck, from 400 you can trust it. Very small boxes (doctor + clinic + weekday + **hour**) hold about **4 visits** each, so their P-point is mostly luck and the score gets **worse**. Backoff fixes that.
+Restaurant reviews: a rating from 4 reviews is luck, from 400 you can trust it. Very small boxes (doctor + clinic + weekday + **hour**) hold about **5 visits** each, so their P-point is mostly luck and the score gets **worse**. Backoff fixes that.
 
 ## Maths (every symbol explained)
 
@@ -59,7 +59,7 @@ $$
 
 | Symbol | Meaning | Where it comes from |
 |---|---|---|
-| $n$ | number of visits scored | the June (valid) split: 5,515 |
+| $n$ | number of visits scored | the June (valid) split: 5,418 |
 | $i$ | one visit, numbered 1 to $n$ | |
 | $\text{late}_i$ | $\max(y_i - p_i, 0)$ | $y_i$ from the `minutes` column, $p_i$ from the method |
 | $\text{idle}_i$ | $\max(p_i - y_i, 0)$ | same |
@@ -74,11 +74,11 @@ This is A1's cost: one late minute costs $q$, one idle minute costs $1-q$, so la
 For one box, the best single number under this score is the box's q-point: sort its training visits and stop q of the way along (A1 showed why). B2 is "one best number per box, with boxes chosen by us". **LightGBM (A6) also builds boxes, but chooses them itself from all the columns.**
 
 ### How shaky is a box's P80?
-Take the Cardiology new visits from train (1,302 visits, P80 = 30.2 min). Draw a small random sample, compute its P80, and repeat 2,000 times. How much do the answers jump around (their standard deviation)?
+Take the Cardiology new visits from train (1,652 visits, P80 = 31.0 min). Draw a small random sample, compute its P80, and repeat 2,000 times. How much do the answers jump around (their standard deviation)?
 
 | Visits in the sample | 10 | 30 | 100 | 300 | 1,000 |
 |---|---|---|---|---|---|
-| P80 jumps by about (min) | 4.1 | 2.5 | 1.4 | 0.8 | 0.45 |
+| P80 jumps by about (min) | 4.2 | 2.7 | 1.6 | 0.9 | 0.53 |
 
 4 times more visits → half the jumpiness ($1/\sqrt{n}$). That's why tiny boxes are luck.
 
@@ -93,48 +93,48 @@ Take the Cardiology new visits from train (1,302 visits, P80 = 30.2 min). Draw a
 
 ## Our results
 
-All fitted on train (Jan–May, 24,818 visits), scored on valid (June, 5,515 visits).
+All fitted on train (Jan–May, 24,763 visits), scored on valid (June, 5,418 visits).
 
 ### Leaderboard: score (pinball loss, lower is better)
 
 | Method | q = 0.67 | q = 0.75 | q = 0.80 |
 |---|---|---|---|
-| B0 fixed 15 | 2.639 | 2.498 | 2.410 |
-| B1 one number | 2.635 | 2.450 | 2.244 |
-| B2 department + visit type | 1.700 | 1.556 | 1.404 |
-| B3 doctor + visit type (backoff to B2) | **1.628** | **1.489** | **1.349** |
-| Oracle (floor, uses hidden truth) | 1.381 | 1.253 | 1.130 |
+| B0 fixed 15 | 2.727 | 2.570 | 2.471 |
+| B1 one number | 2.709 | 2.548 | 2.346 |
+| B2 department + visit type | 1.621 | 1.481 | 1.344 |
+| B3 doctor + visit type (backoff to B2) | **1.531** | **1.391** | **1.258** |
+| Oracle (floor, uses hidden truth) | 1.372 | 1.243 | 1.120 |
 
-- Best real method: B3. At q = 0.8 it is 0.22 above the floor; that gap is LightGBM's target in A6.
-- B0's coverage is 0.688 at every q: **today's 15 minutes is secretly a P67**.
-- B1's coverage is right (0.794 at q = 0.8) but its score is bad: right on average, wrong for each kind of visit.
+- Best real method: B3. At q = 0.8 it is 0.14 above the floor; that gap is LightGBM's target in A6.
+- B0's coverage is 0.710 at every q: **today's 15 minutes is secretly about a P71**.
+- B1's coverage is right (0.790 at q = 0.8) but its score is bad: right on average, wrong for each kind of visit.
 
 ### Box-size ladder (q = 0.8)
 
 | Boxes by | Boxes | Median visits per box | Score, no backoff | Score, backoff (min 30) |
 |---|---|---|---|---|
-| department + visit type | 24 | 991 | 1.404 | 1.404 |
-| doctor + visit type | 60 | 438.5 | 1.349 | 1.349 |
-| + clinic | 120 | 214 | **1.335** | 1.335 |
-| + weekday | 720 | 31 | 1.375 | 1.378 |
-| + hour | 6,078 | 4 | **1.671** | 1.404 (= B2) |
+| department + visit type | 16 | 1,492.5 | 1.344 | 1.344 |
+| doctor + visit type | 40 | 600.5 | 1.258 | 1.258 |
+| + clinic | 80 | 314 | **1.242** | 1.242 |
+| + weekday | 480 | 50 | 1.258 | 1.260 |
+| + hour | 4,263 | 5 | **1.508** | 1.344 (= B2) |
 
 ### Rounding up to 5 minutes (B2)
 
 | q | Coverage (raw P-point) | On time (booked slot) | Late min / visit | Idle min / visit |
 |---|---|---|---|---|
-| 0.67 | 0.683 | **0.803** | 0.75 | 4.29 |
-| 0.75 | 0.749 | 0.866 | 0.51 | 5.59 |
-| 0.80 | 0.794 | 0.885 | 0.39 | 6.13 |
+| 0.67 | 0.666 | **0.824** | 0.65 | 4.46 |
+| 0.75 | 0.751 | 0.870 | 0.45 | 5.34 |
+| 0.80 | 0.798 | 0.901 | 0.34 | 6.24 |
 
-Rounding adds about 9–12 points of on-time share. If the PO wants about 80% on time *as booked*, q = 0.67 already gets there. The PO decides in A8.
+Rounding adds about 10–16 points of on-time share. If the PO wants about 80% on time *as booked*, q = 0.67 already gets there. The PO decides in A8.
 
 ## Gotchas
 - Quick check: idle minutes are slot − actual (20 − 12 = 8), not the visit length. Score = 8 × 0.2 = 1.6.
 - `y - pred` fails on plain Python lists; convert with `np.asarray(..., float)` first.
 - **Indentation decides how often a line runs.** The oracle row sat inside the per-method loop, so it was added 4 times per q.
 - **Don't reuse a results list for a different table.** Appending the ladder rows to the leaderboard's `rows` put NaN rows into `baselines_valid.csv`, the file A6 reads.
-- Backoff protects against tiny boxes but doesn't guarantee a gain: at the weekday level it was slightly worse (1.378 vs 1.375).
+- Backoff protects against tiny boxes but doesn't guarantee a gain: at the weekday level it was slightly worse (1.260 vs 1.258).
 
 ## Self-check
 
@@ -145,7 +145,7 @@ Rounding adds about 9–12 points of on-time share. If the PO wants about 80% on
 
 <details><summary>Q2. Why is one number for everyone (B1) a bad plan?</summary>
 
-Neurology new visits (P80 about 37 min) run late almost every time in a 20-minute slot; Dermatology follow-ups (about 9 min) leave the doctor idle about 11 minutes. One number can't fit both.
+Neurology new visits (P80 about 36 min) run late almost every time in a 20-minute slot; Dermatology follow-ups (about 8 min) leave the doctor idle about 12 minutes. One number can't fit both.
 </details>
 
 <details><summary>Q3. Why not trust a box with 4 visits, and what does backoff do?</summary>
@@ -170,8 +170,9 @@ baseline is required for :
 
 ### why not make the boxes samll as possible
 - smaller boxes are more specific, but each holds fewer visits, so its P-point is estimated from less data and becomes noisy.
-- In ladder the loss improved until about 214 visits per box (1.335), then worsened: 1.375 at 31 visits per box and 1.671 at 4 visits per box.
-- Backoff (min_n=30) says that if a box has fewer than 30 visits, use the parent's number (B2) instead. At the finest level this brought the loss from 1.671 back to 1.404, which is B2's score.
+- In ladder the loss improved until about 314 visits per box (1.242), then worsened: 1.258 at 50 visits per box and 1.508 at 5 visits per box.
+- Backoff (min_n=30) says that if a box has fewer than 30 visits, use the parent's number (B2) instead. At the finest level this brought the loss from 1.508 back to 1.344, which is B2's score.
+
 
 ### what LightGBM does diffrently
 - B2 uses boxes that we choose by hand (department × visit type) and gives one fixed number per box.

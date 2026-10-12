@@ -25,7 +25,6 @@ def _make_patients(rng, n=6000):
         "patient_name": rng.choice(FIRST_NAMES, n),
         "age": np.where(is_kid, rng.integers(0, 16, n),
                         np.clip(rng.normal(46, 17, n), 16, 92).astype(int)),
-        "interpreter": rng.random(n) < 0.06,
     })
 
 
@@ -43,19 +42,17 @@ def _make_appointments(rng, patients):
                 clinic = rng.choice(doc.clinics)
                 n = min(rng.poisson(14), len(SLOT_TIMES))
                 for t in sorted(rng.choice(SLOT_TIMES, n, replace=False)):
-                    visit = rng.choice(["new", "follow-up", "review"], p=[0.35, 0.45, 0.20])
+                    visit = rng.choice(["new", "follow-up"], p=[0.4375, 0.5625])
                     p = patients.loc[rng.choice(kids if doc.dept == "Paediatrics" else adults)]
                     if visit == "new":
                         reports = rng.poisson(1.2 + (1.5 if doc.dept in ("Cardiology", "Neurology") else 0))
-                    elif visit == "follow-up":
-                        reports = rng.poisson(0.6)
                     else:
-                        reports = 1 + rng.poisson(2)
+                        reports = rng.poisson(0.6)
                     rows.append(dict(
                         date=d, weekday=day.weekday(), slot_time=t, clinic=clinic,
                         doctor=doc.name, department=doc.dept, doctor_speed=doc.speed,
                         patient_id=p.patient_id, patient_name=p.patient_name, age=int(p.age),
-                        interpreter=bool(p.interpreter), visit_type=visit, prior_reports=int(reports),
+                        visit_type=visit, prior_reports=int(reports),
                         teleconsult=bool(visit != "new" and doc.dept != "Paediatrics" and rng.random() < 0.10),
                     ))
         day += timedelta(days=1)
@@ -71,7 +68,7 @@ def simulate(seed=SEED):
 
     world["expected_minutes"] = [
         expected_minutes(dept=r.department, visit_type=r.visit_type, age=r.age, reports=r.prior_reports,
-                         interpreter=r.interpreter, tele=r.teleconsult, doctor_speed=r.doctor_speed,
+                         tele=r.teleconsult, doctor_speed=r.doctor_speed,
                          clinic=r.clinic, weekday=r.weekday, hour=int(r.slot_time[:2]), date=r.date)
         for r in world.itertuples()
     ]

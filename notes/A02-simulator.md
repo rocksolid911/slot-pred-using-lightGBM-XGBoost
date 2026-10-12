@@ -22,7 +22,7 @@ In a real hospital nobody knows the rules. We simulate only because we have no r
 
 ### Follow one visit through the simulator
 
-**Step 1, the booking (facts).** `simulate.py` creates: Siddhant, 34, **new** visit, **Dr Deepak** (General Medicine), **Monday** 2 March, **10:30**, **HSR**, **2 prior reports**, no interpreter, not video. All of this is known when the receptionist books.
+**Step 1, the booking (facts).** `simulate.py` creates: Siddhant, 34, **new** visit, **Dr Deepak** (General Medicine), **Monday** 2 March, **10:30**, **HSR**, **2 prior reports**, not video. All of this is known when the receptionist books.
 
 **Step 2, the rule (`expected_minutes`, which I wrote).**
 ```
@@ -99,14 +99,13 @@ The **noise** is everything the booking system can't see: a worried patient, a c
 
 | Kind | Example | Formula | Meaning |
 |---|---|---|---|
-| **Additive** | Interpreter | m + 4 | A roughly fixed extra cost, short or long consult |
+| **Additive** | Prior reports | m + 1.3 each | A roughly fixed extra cost per report, short or long consult |
 | **Multiplicative** | Slow doctor | m × 1.2 | 20% longer at everything: 10 → 12, 25 → 30 |
 
 | Factor | Type | Size | Why |
 |---|---|---|---|
-| Base (department × visit type) | — | table in `world.py` | |
+| Base (department × visit type: new or follow-up) | — | table in `world.py` | |
 | Prior reports | Additive | +1.3 min each, at most 8 | Reading a report takes the same time in any consult; beyond 8 the doctor skims |
-| Interpreter *(my choice)* | Additive | +4 min | Translating is a roughly fixed cost |
 | Age 65+ *(my choice)* | Multiplicative | ×1.15 | Everything is slower: history, exam, explaining |
 | Baby under 3 (Paediatrics) | Multiplicative | ×1.15 | Same idea as age |
 | Teleconsult | Multiplicative | ×0.80 | No physical exam |
@@ -116,7 +115,7 @@ The **noise** is everything the booking system can't see: a worried patient, a c
 | Before 10:00 / from 16:00 | Multiplicative | ×1.05 / ×0.92 | Fresh morning; hurrying late afternoon |
 | Dermatology from 1 July (**drift**) | Additive | +3 min | A fixed checklist |
 
-**Order matters:** a slow doctor is slow at the extra work too, so the pace multiplies the reports and the interpreter time. The drift checklist is added *after* the pace, because it takes 3 minutes whoever the dermatologist is.
+**Order matters:** a slow doctor is slow at the extra work too, so the pace multiplies the report-reading time too. The drift checklist is added *after* the pace, because it takes 3 minutes whoever the dermatologist is.
 
 ### Drift, built in on purpose
 From **1 July** (the start of the test period): Dr Nikhil Verma joins Paediatrics (slow, never seen in training), and Dermatology adds +3 minutes. Training uses Jan–May and validation uses June, so neither change is visible until the test. That's what monitoring (A12) is meant to catch.
@@ -159,7 +158,7 @@ It's an **assumption**, not data. It controls how much visits of the same kind v
 
 ### The rule
 $$
-\text{work} = \text{base} + 1.3\,\min(\text{reports}, 8) + 4\cdot[\text{interpreter}]
+\text{work} = \text{base} + 1.3\,\min(\text{reports}, 8)
 $$
 $$
 \text{pace} = f_{age}\, f_{infant}\, f_{tele}\, f_{doctor}\, f_{clinic}\, f_{day}\, f_{time}
@@ -218,7 +217,7 @@ A million random draws confirm it: mean 1.000, median 0.962, P80 1.218.
 
 **Worked example** (the sentence from the very first message): *Siddhant (34), new appointment with Dr Deepak (General Medicine, speed 1.0), Monday 10:30 at HSR, 2 reports.*
 ```
-work     = 12 + 1.3 × 2 + 0      = 14.6
+work     = 12 + 1.3 × 2          = 14.6
 pace     = 1.0 × 1.00 × 0.94     = 0.94      (only Monday is not neutral)
 expected = 14.6 × 0.94           = 13.7 min
 median   = 13.7 × 0.962          = 13.2 min
@@ -237,8 +236,8 @@ P80      = 13.7 × 1.217          = 16.7 min   ->  20-min slot
 | The oracle | [A02_simulator.ipynb](../notebooks/A02_simulator.ipynb) | me (TODO) |
 
 ## Our results
-- **Tests:** 18 passing (15 for `world.py`, 2 for the export, 1 setup). My first `expected_minutes` failed 7 tests (6 bugs); a missing boundary test let `age <= 3` slip through once more.
-- **Data:** 43,747 visits Jan–Aug 2026; test period (Jul–Aug) 11,144 visits; average expected length 13.97 min.
+- **Tests:** 17 passing (14 for `world.py`, 2 for the export, 1 setup). My first `expected_minutes` failed 7 tests (6 bugs); a missing boundary test let `age <= 3` slip through once more.
+- **Data:** 44,337 visits Jan–Aug 2026 (44% new, 56% follow-up); test period (Jul–Aug) 11,872 visits; average expected length 13.38 min.
 
 ### The oracle vs today's rule (test period, Jul–Aug)
 
@@ -246,38 +245,38 @@ The oracle knows `expected_minutes` (the rule) but never the noise. q is a setti
 
 | | Fixed 15 | P67 exact | P67 rounded | P75 exact | P75 rounded | P80 exact | P80 rounded |
 |---|---|---|---|---|---|---|---|
-| MAE of P50 guess (min) | 5.77 | 3.08 | 3.08 | 3.08 | 3.08 | 3.08 | 3.08 |
-| **Visits running late** | **35.2%** | 33.6% | 17.0% | 25.2% | 12.5% | 20.3% | 9.8% |
-| Avg idle (min) | 3.37 | 2.27 | 4.24 | 3.00 | 5.12 | 3.60 | 5.77 |
-| Avg late minutes | 2.40 | 1.10 | 0.57 | 0.80 | 0.41 | 0.63 | 0.32 |
-| Avg slot (min) | 15.0 | 15.2 | 17.7 | 16.2 | 18.7 | 17.0 | 19.5 |
+| MAE of P50 guess (min) | 6.02 | 2.92 | 2.92 | 2.92 | 2.92 | 2.92 | 2.92 |
+| **Visits running late** | **30.4%** | 32.1% | 16.1% | 24.1% | 11.3% | 19.2% | 9.0% |
+| Avg idle (min) | 3.85 | 2.24 | 4.21 | 2.95 | 5.11 | 3.54 | 5.75 |
+| Avg late minutes | 2.17 | 1.01 | 0.53 | 0.73 | 0.37 | 0.57 | 0.29 |
+| Avg slot (min) | 15.0 | 14.6 | 17.0 | 15.5 | 18.1 | 16.3 | 18.8 |
 
 ![(a) one visit's outcomes and the slot each quantile books; (b) late vs idle trade-off for every q; (c) who the fixed 15-minute slot hurts](img/a02_oracle.png)
 
 **Fixed 15: share of visits running late**
 
-| | follow-up | review | new |
-|---|---|---|---|
-| Cardiology | 9% | 55% | 89% |
-| Dermatology | 7% | 40% | 41% |
-| ENT | 3% | 16% | 30% |
-| General Medicine | 2% | 29% | 37% |
-| Gynaecology | 10% | 52% | 78% |
-| Neurology | 28% | 80% | 98% |
-| Orthopaedics | 4% | 33% | 49% |
-| Paediatrics | 15% | 45% | 72% |
+| | follow-up | new |
+|---|---|---|
+| Cardiology | 8% | 88% |
+| Dermatology | 5% | 39% |
+| ENT | 0% | 26% |
+| General Medicine | 2% | 29% |
+| Gynaecology | 11% | 74% |
+| Neurology | 26% | 97% |
+| Orthopaedics | 3% | 46% |
+| Paediatrics | 11% | 71% |
 
 ### Answers to the notebook questions
 
-**1. Oracle MAE = 3.08 min: the irreducible error.** My first answer called it "the minimum slot booking time"; it isn't a slot length. It is the smallest **average prediction error** any model can reach, because no model can know the noise. Closed form for log-normal noise:
+**1. Oracle MAE = 2.92 min: the irreducible error.** My first answer called it "the minimum slot booking time"; it isn't a slot length. It is the smallest **average prediction error** any model can reach, because no model can know the noise. Closed form for log-normal noise:
 $$
 \text{MAE}_{oracle} = \text{expected} \times \big(2\Phi(\sigma) - 1\big) = 0.22 \times \text{expected} \quad(\sigma = 0.28)
 $$
-Average expected 13.97 min → 0.22 × 13.97 = **3.08**. Any real model (LightGBM in A6) scores **≥ 3.08**; today's rule scores 5.77. The floor grows with σ.
+Average expected 13.38 min → 0.22 × 13.38 ≈ **2.95** (the simulation gives 2.92; the gap is sampling). Any real model (LightGBM in A6) scores **≥ 2.92**; today's rule scores 6.02. The floor grows with σ.
 
-**2. Coverage.** The exact P80 slot covers **79.7%** (≈ 80%, up to sampling). Rounded up to 5 minutes it covers **90.2%**: rounding adds about **2.5 min** to each slot on average, buying coverage with idle time (3.6 → 5.8 min). **Consequence:** on a 5-minute grid, a lower q already meets the target. Rounded P67 lets only 17% run late, inside the PO's "2 in 10". (Alternative to discuss later: round to the *nearest* 5 instead of up.)
+**2. Coverage.** The exact P80 slot covers **80.8%** (≈ 80%, up to sampling). Rounded up to 5 minutes it covers **91.0%**: rounding adds about **2.5 min** to each slot on average, buying coverage with idle time (3.5 → 5.7 min). **Consequence:** on a 5-minute grid, a lower q already meets the target. Rounded P67 lets only 16% run late, inside the PO's "2 in 10". (Alternative to discuss later: round to the *nearest* 5 instead of up.)
 
-**3. Fixed 15 fits nobody.** 35% of visits run late. It's **too short for long visits** (Neurology new 98%, Cardiology new 89%, Gynaecology new 78%, Paediatrics new 72%) and **too long for short ones** (General Medicine follow-up 2% late, about 7 idle minutes). The exact oracle P67 books almost the same total time (15.2 min on average) but **halves the late minutes (1.1 vs 2.4) and cuts idle (2.3 vs 3.4)**. Prediction doesn't add time; it **moves time to the visits that need it**.
+**3. Fixed 15 fits nobody.** 30% of visits run late. It's **too short for long visits** (Neurology new 97%, Cardiology new 88%, Gynaecology new 74%, Paediatrics new 71%) and **too long for short ones** (General Medicine follow-up 2% late, about 7 idle minutes). The exact oracle P67 books slightly *less* total time (14.6 min on average) yet **halves the late minutes (1.0 vs 2.2) and cuts idle (2.2 vs 3.9)**. Prediction doesn't add time; it **moves time to the visits that need it**.
 
 **4. Why P80 ≈ 1.27 × median for every visit.** $P80/\text{median} = e^{\mu + z\sigma}/e^{\mu} = e^{z\sigma} = e^{0.8416 \times 0.28} = 1.27$. The expected minutes and μ cancel, so the *relative* margin depends only on σ. In minutes it grows with the visit: 10 min → +2.7, 30 min → +8. For the PO's candidates: P75 → ×1.21, P67 → ×1.13.
 
@@ -340,10 +339,11 @@ e^(0.8416 × 0.28) ≈ 1.27, and no: the expected minutes cancel. Only σ matter
 1.2816.
 </details>
 
-<details><summary>Q5. Interpreter: additive or multiplicative, and why?</summary>
+<details><summary>Q5. Prior reports: additive or multiplicative, and why?</summary>
 
-Additive. Translating adds roughly the same minutes whatever the consult's length.
+Additive. Reading a report takes roughly the same minutes whatever the consult's length (but a slow doctor reads slowly too, so the pace still multiplies it).
 </details>
+
 
 <details><summary>Q6. How would you estimate σ from real data?</summary>
 

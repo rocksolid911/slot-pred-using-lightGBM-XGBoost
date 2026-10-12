@@ -75,7 +75,8 @@
   <div class="lab" id="lab-step">
     <div class="lab-head"><span class="tag">Lab 3.4</span><h3>A process change looks like valid data</h3></div>
     <p class="say">Monthly median consult minutes per clinic, straight from the export. Whitefield doubles in March–April. No outlier rule catches it (Lab 3.2): almost every row looks plausible. Only a time plot, and then the timestamp check <code>consult_start == check_in</code>, gives it away.</p>
-    <label class="check"><input type="checkbox" id="stClean"> Remove the 1,753 rows where <code>consult_start</code> equals <code>check_in</code></label>
+    <label class="check"><input type="checkbox" id="stClean"> Remove the 1,712 rows where
+ <code>consult_start</code> equals <code>check_in</code></label>
     <p class="say" id="stSay"></p>
     <div class="chart"><canvas id="stChart" aria-label="Monthly median consult minutes per clinic"></canvas></div>
   </div>

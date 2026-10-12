@@ -138,7 +138,8 @@ Split **by time** when the model predicts the future (train on the past, test on
 
 - **Hyperparameter tuning** on the validation set.
 - **Explainability:** feature importance, SHAP values. Does the model use sensible signals?
-- **Fairness:** are errors much worse for some group (children, elderly patients, people who need an interpreter)?
+- **Fairness:** are errors much worse for some group (children, elderly patients, teleconsult patients)?
+
 - **Model card:** a short document covering what the model is for, its data, metrics, limits and known failure modes.
 
 **Output:** a chosen model version, a model card, sign-off from the domain experts.

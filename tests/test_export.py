@@ -19,7 +19,7 @@ def _tiny_world(n=200):
         "appointment_id": [f"A{i:06d}" for i in range(n)], "date": "2026-03-02", "weekday": 0,
         "slot_time": "10:00", "clinic": "HSR", "doctor": "Deepak Rao", "department": "General Medicine",
         "doctor_speed": 1.0, "patient_id": "P00001", "patient_name": "Siddhant", "age": 34,
-        "interpreter": False, "visit_type": "new", "prior_reports": 2, "teleconsult": False,
+        "visit_type": "new", "prior_reports": 2, "teleconsult": False,
         "expected_minutes": 13.7, "noise": rng.lognormal(0, 0.28, n), "actual_minutes": 13.0,
         "check_in": start - pd.Timedelta(minutes=10), "consult_start": start,
         "consult_end": start + pd.Timedelta(minutes=13),

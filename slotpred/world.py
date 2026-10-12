@@ -9,23 +9,22 @@ from dataclasses import dataclass
 
 import numpy as np
 
-# --- Base minutes per department: (new, follow-up, report review) ---------------
+# --- Base minutes per department: (new, follow-up) --------------------------------
 DEPARTMENTS = {
-    "Cardiology":       (20, 9, 13),
-    "Orthopaedics":     (14, 8, 10),
-    "Paediatrics":      (16, 9, 10),
-    "General Medicine": (12, 7, 9),
-    "Dermatology":      (10, 6, 7),
-    "ENT":              (12, 7, 8),
-    "Gynaecology":      (18, 10, 12),
-    "Neurology":        (24, 12, 15),
+    "Cardiology":       (20, 9),
+    "Orthopaedics":     (14, 8),
+    "Paediatrics":      (16, 9),
+    "General Medicine": (12, 7),
+    "Dermatology":      (10, 6),
+    "ENT":              (12, 7),
+    "Gynaecology":      (18, 10),
+    "Neurology":        (24, 12),
 }
-VISIT_TYPES = ("new", "follow-up", "review")
+VISIT_TYPES = ("new", "follow-up")
 
-# --- ADDITIVE effects: extra *work*, the same minutes whatever the base -------------
+# --- ADDITIVE effect: extra *work*, the same minutes whatever the base --------------
 REPORT_MIN = 1.3          # minutes to read each prior report
 REPORT_CAP = 8            # beyond 8 reports the doctor skims; no extra time
-INTERPRETER_MIN = 4.0     # translating adds roughly fixed minutes
 
 # --- MULTIPLICATIVE effects: change the *pace* of the whole consult ----------------
 ELDERLY_AGE, ELDERLY_FACTOR = 65, 1.15      # everything is slower: history, exam, explaining
@@ -84,16 +83,15 @@ Imran Ayesha Farhan Zoya Joseph Mary Thomas Anil Prakash Harish Shalini Nandini 
 Venkatesh Srinivas Raghav Tanvi Ishita Aryan Dev Yash Om Tara Asha Bhavna Chetan Deepa Esha""".split()
 
 
-def expected_minutes(*, dept, visit_type, age, reports, interpreter, tele,
+def expected_minutes(*, dept, visit_type, age, reports, tele,
                      doctor_speed, clinic, weekday, hour, date):
     """The hidden rule: the EXPECTED consult length in minutes, before noise.
 
     Arguments
         dept         e.g. "Cardiology"            (a key of DEPARTMENTS)
-        visit_type   "new" | "follow-up" | "review"
+        visit_type   "new" | "follow-up"
         age          patient age in years (int)
         reports      number of prior reports to read (int)
-        interpreter  True if an interpreter is needed
         tele         True for a video consult
         doctor_speed the doctor's pace multiplier (Doctor.speed)
         clinic       e.g. "HSR"                    (a key of CLINIC_FACTOR)
@@ -102,7 +100,7 @@ def expected_minutes(*, dept, visit_type, age, reports, interpreter, tele,
         date         "YYYY-MM-DD" (strings in this format compare correctly with < and >=)
 
     The design (lesson A2):
-        work  = base + min(reports, REPORT_CAP) * REPORT_MIN + interpreter
+        work  = base + min(reports, REPORT_CAP) * REPORT_MIN
                                                                   <- ADDITIVE (extra work)
         pace  = elderly x infant x tele x doctor x clinic x day x time-of-day   <- MULTIPLICATIVE
         drift = +3 min for Dermatology from July                   <- ADDITIVE, after the pace
@@ -112,7 +110,7 @@ def expected_minutes(*, dept, visit_type, age, reports, interpreter, tele,
     Use the constants defined above; don't hard-code numbers.
     """
     report_work = min(reports, REPORT_CAP) * REPORT_MIN
-    work = DEPARTMENTS[dept][VISIT_TYPES.index(visit_type)] + report_work + (INTERPRETER_MIN if interpreter else 0)
+    work = DEPARTMENTS[dept][VISIT_TYPES.index(visit_type)] + report_work
     
     pace = 1
     if age >= ELDERLY_AGE:

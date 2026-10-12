@@ -110,7 +110,8 @@ def slot_data():
     cells = {f"{d}|{v}": histogram(g["expected_minutes"]) for (d, v), g in test.groupby(["department", "visit_type"])}
     return {
         "departments": {k: list(v) for k, v in w.DEPARTMENTS.items()}, "visitTypes": list(w.VISIT_TYPES),
-        "reportMin": w.REPORT_MIN, "reportCap": w.REPORT_CAP, "interpreterMin": w.INTERPRETER_MIN,
+        "reportMin": w.REPORT_MIN, "reportCap": w.REPORT_CAP,
+
         "elderlyAge": w.ELDERLY_AGE, "elderlyFactor": w.ELDERLY_FACTOR, "infantAge": w.INFANT_AGE,
         "infantFactor": w.INFANT_FACTOR, "teleFactor": w.TELE_FACTOR, "clinicFactor": w.CLINIC_FACTOR,
         "dayFactor": {str(k): v for k, v in w.DAY_FACTOR.items()}, "earlyHour": w.EARLY_HOUR,

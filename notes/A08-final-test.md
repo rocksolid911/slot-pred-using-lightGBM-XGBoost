@@ -20,44 +20,46 @@
 If you look at the test months, change something, and look again, the test months slowly become part of your choices, and the score becomes optimistic, like a student who has seen the exam. So all choices (model, settings, number of trees) were made on June; July–August was opened only now.
 
 ### Why refit on January–June first?
-June was for **choosing**. Once the choices are fixed, June's 5,515 visits can also **teach**: more data, and the most recent. We keep the number of trees early stopping chose on June (140 / 137 / 184) and train on all 30,333 January–June visits. Nothing about July–August is used.
+June was for **choosing**. Once the choices are fixed, June's 5,418 visits can also **teach**: more data, and the most recent. We keep the number of trees early stopping chose on June (122 / 107 / 126) and train on all 30,181 January–June visits. Nothing about July–August is used.
 
 ### The trade-off table: what the PO chooses from
 Every visit's slot = the model's prediction rounded up to 5 minutes.
 
 | Booking rule | On time | Late min / visit | Idle min / visit | Average slot | Patients per 4 h |
 |---|---|---|---|---|---|
-| Today: 15 min for everyone | 65% | 2.38 | 3.37 | 15.0 | 16.0 |
-| Model P67 | 79% | 0.77 | 3.81 | 17.1 | 14.1 |
-| Model P75 | 84% | 0.55 | 4.61 | 18.1 | 13.3 |
-| Model P80 | 86% | 0.45 | 5.19 | 18.7 | 12.8 |
+| Today: 15 min for everyone | 70% | 2.17 | 3.85 | 15.0 | 16.0 |
+| Model P67 | 81% | 0.69 | 3.91 | 16.5 | 14.5 |
+| Model P75 | 86% | 0.48 | 4.74 | 17.6 | 13.7 |
+| Model P80 | 88% | 0.40 | 5.27 | 18.2 | 13.2 |
 
 | Column | Where it comes from |
 |---|---|
-| On time | share of the 10,937 test visits with actual minutes ≤ booked slot |
+| On time | share of the 11,664 test visits with actual minutes ≤ booked slot |
 | Late min / visit | average of max(actual − slot, 0) over all test visits |
 | Idle min / visit | average of max(slot − actual, 0) |
 | Patients per 4 h | 240 minutes ÷ average slot |
 
-**Plain reading:** the model gets many more patients seen on time and cuts the next patient's waiting by about 4×. The price is longer slots, so about 2–3 fewer patients per 4-hour session. Which row to use is the PO's decision (q is a business setting); P75 is only our provisional default.
+**Plain reading:** the model gets many more patients seen on time and cuts the next patient's waiting by about 4×. The price is longer slots, so about 1.5–3 fewer patients per 4-hour session. Which row to use is the PO's decision (q is a business setting); P75 is only our provisional default.
 
 ### Score against the alternatives (pinball, lower is better)
 
 | q | Today (15) | Lookup table (B3) | LightGBM alone | **Model** (LightGBM + new-doctor fallback) | Best possible |
 |---|---|---|---|---|---|
-| 0.67 | 2.710 | 1.800 | 1.639 | **1.621** | 1.482 |
-| 0.75 | 2.631 | 1.649 | 1.523 | **1.488** | 1.347 |
-| 0.80 | 2.582 | 1.499 | 1.407 | **1.355** | 1.218 |
+| 0.67 | 2.722 | 1.657 | 1.567 | **1.524** | 1.413 |
+| 0.75 | 2.587 | 1.513 | 1.455 | **1.395** | 1.284 |
+| 0.80 | 2.503 | 1.373 | 1.351 | **1.268** | 1.160 |
 
-At P75 the model closes 89% of the gap between today's rule and the best possible score.
+At P75 the model closes 91% of the gap between today's rule and the best possible score.
+
+**A live example of "only once".** The test run also scored XGBoost, and on July–August XGBoost *alone* beats LightGBM *alone* (1.243 vs 1.351 at P80). It's tempting to switch now, but that would be choosing on the test months, exactly what 8.1 in the lab warns about. On June, where we choose, LightGBM was better. And with the new-doctor fallback both models land at the same score (1.268 vs 1.270), so XGBoost's lead came almost entirely from the one new doctor (point 2 below).
 
 ### What the test months revealed (things June could not show)
-1. **Dermatology changed on 1 July** (+3 minutes per visit, A2's drift). The model learned January–June, so it books Dermatology too short: about 67–70% on time instead of about 85%. Fix: retrain monthly and watch for drift (A12, A13).
-2. **A new doctor** (Nikhil Verma, joined July). The model leans mostly on the `doctor` column (36% of gain). For an unknown doctor, LightGBM alone guessed blindly: only 39–41% on time. **Fix applied: A5's backoff.** A doctor not in training gets the department + visit-type lookup instead → 64% on time. He is also slower than his department, which only his own data can teach, after retraining.
-3. **Coverage is below q on the test months** (0.73 for q = 0.8, vs 0.79 on June), because of 1 and 2. This is what drift looks like in numbers.
+1. **Dermatology changed on 1 July** (+3 minutes per visit, A2's drift). The model learned January–June, so it books Dermatology too short: about 64–72% on time, while every other department is at 77–92%. Fix: retrain monthly and watch for drift (A12, A13).
+2. **A new doctor** (Nikhil Verma, joined July). The model leans mostly on the `doctor` column (41% of gain). For an unknown doctor, LightGBM alone guessed blindly: only 27–36% on time. **Fix applied: A5's backoff.** A doctor not in training gets the department + visit-type lookup instead → 54–69% on time. He is also slower than his department, which only his own data can teach, after retraining. (XGBoost alone got him 86–93% on time, but by luck: its default branch for an unknown value happens to lead to long slots, which suits this one slow doctor. A fast new doctor would get slots far too long.)
+3. **Coverage is below q on the test months** (0.755 for q = 0.8, vs 0.795 on June), because of 1 and 2. This is what drift looks like in numbers.
 
 ## The demo
-[OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q) runs the trained trees inside the page: each tree is a chain of yes/no questions, and the page adds up the leaf values exactly as LightGBM does (checked: differences below 0.0000000001 minutes; `tests/test_final.py`). Example: Dr Deepak Rao, new visit, Monday 10:30 at HSR, age 34, 2 reports → P67 15.7, P75 16.5, P80 16.9 minutes → **book 20**.
+[OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q) runs the trained trees inside the page: each tree is a chain of yes/no questions, and the page adds up the leaf values exactly as LightGBM does (checked: differences below 0.0000000001 minutes; `tests/test_final.py`). Example: Dr Deepak Rao, new visit, Monday 10:30 at HSR, age 34, 2 reports → P67 16.1, P75 16.6, P80 17.0 minutes → **book 20** (the P75 model alone says 16.5, a little below the P70 model's 16.6; keeping the levels in order lifts it to 16.6).
 
 ## Code
 | Piece | Where | Written by |
@@ -86,7 +88,8 @@ The model relies heavily on the doctor column; for a doctor it never saw, its tr
 </details>
 
 ## In my words
-The model improves on-time bookings to 84% at P75, but sees fewer patients per session; testing also revealed data drift and new-doctor risks.
+The model improves on-time bookings to 86% at P75,
+ but sees fewer patients per session; testing also revealed data drift and new-doctor risks.
 
 ## New terms
 test set (used once), refit on train + valid, trade-off table, cold start fallback, drift (seen in numbers)

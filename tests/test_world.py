@@ -1,6 +1,6 @@
 """Checks for your two TODO(you) functions in slotpred/world.py.
 
-They test BEHAVIOUR (new > follow-up, interpreter is additive, ...), not exact numbers,
+They test BEHAVIOUR (new > follow-up, reports are additive, ...), not exact numbers,
 so you can change the constants in world.py and the tests still apply.
 
     .venv/Scripts/python.exe -m pytest tests/test_world.py -v
@@ -15,7 +15,7 @@ from slotpred import world as w
 
 def minutes(**overrides):
     """expected_minutes for a 'neutral' visit: every pace multiplier is 1, so effects are easy to read."""
-    args = dict(dept="General Medicine", visit_type="new", age=40, reports=0, interpreter=False,
+    args = dict(dept="General Medicine", visit_type="new", age=40, reports=0,
                 tele=False, doctor_speed=1.0, clinic="HSR", weekday=1, hour=11, date="2026-03-10")
     args.update(overrides)
     return w.expected_minutes(**args)
@@ -24,10 +24,9 @@ def minutes(**overrides):
 # ---------------------------------------------------------------- expected_minutes
 
 def test_neutral_visit_equals_base_minutes():
-    for dept, (new, follow, review) in w.DEPARTMENTS.items():
+    for dept, (new, follow) in w.DEPARTMENTS.items():
         assert minutes(dept=dept, visit_type="new") == pytest.approx(new)
         assert minutes(dept=dept, visit_type="follow-up") == pytest.approx(follow)
-        assert minutes(dept=dept, visit_type="review") == pytest.approx(review)
 
 
 def test_always_positive_and_plausible():
@@ -36,7 +35,7 @@ def test_always_positive_and_plausible():
             for age in (1, 40, 80):
                 for reports in (0, 3, 12):
                     m = minutes(dept=dept, visit_type=visit, age=age, reports=reports,
-                                interpreter=True, doctor_speed=1.35, weekday=5, hour=9)
+                                doctor_speed=1.35, weekday=5, hour=9)
                     assert 2 < m < 90, (dept, visit, age, reports, m)
 
 
@@ -47,14 +46,6 @@ def test_reports_are_additive_and_capped():
     assert minutes(dept="Neurology", reports=1) - minutes(dept="Neurology", reports=0) == pytest.approx(one)
     # capped
     assert minutes(reports=w.REPORT_CAP + 5) == pytest.approx(minutes(reports=w.REPORT_CAP))
-
-
-def test_interpreter_is_additive():
-    short = minutes(dept="Dermatology", visit_type="follow-up", interpreter=True) - \
-        minutes(dept="Dermatology", visit_type="follow-up")
-    long = minutes(dept="Neurology", interpreter=True) - minutes(dept="Neurology")
-    assert short == pytest.approx(w.INTERPRETER_MIN)
-    assert long == pytest.approx(w.INTERPRETER_MIN)
 
 
 def test_elderly_is_multiplicative():
@@ -88,9 +79,9 @@ def test_pace_multipliers():
 
 
 def test_slow_doctor_also_slows_extra_work():
-    # pace multiplies the whole work, including reports and interpreter
-    slow = minutes(reports=2, interpreter=True, doctor_speed=1.2)
-    normal = minutes(reports=2, interpreter=True)
+    # pace multiplies the whole work, including reports
+    slow = minutes(reports=2, doctor_speed=1.2)
+    normal = minutes(reports=2)
     assert slow == pytest.approx(normal * 1.2)
 
 

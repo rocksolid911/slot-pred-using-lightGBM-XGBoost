@@ -73,14 +73,14 @@ The rule assumes symmetric data. Consult times are right-skewed (log-normal, A2)
 
 | # | Problem | Evidence | Rows | Likely cause | Fix to try in A4 |
 |---|---|---|---|---|---|
-| 1 | Exact duplicate rows | 175 rows copy another row; all repeated `appointment_id`s identical | 175 (0.4%) | Export ran twice | Drop duplicates, keep one |
-| 2 | Inconsistent labels | `doctor`: 105 spellings for 21 doctors; `visit_type`: 12 for 3 | ~1.4k visit types + ~4% of doctors | Free-text entry | Normalise and map to the 21 doctors and 3 visit types |
-| 3 | Placeholder age 999 | max age 999 (41 rows); age 0 in 407 rows **(all Paediatrics: real babies)** | 41 | "Unknown" code | 999 → missing, then impute |
-| 4 | Missing age | 863 NaN (1.96%), flat across clinics; also why `age` is float | 863 | MCAR-like | Impute (+ missing flag) |
-| 5 | Missing `consult_end` | 100 NaN (0.23%), flat across clinics and months | 100 | MCAR-like | Drop from training (no target) |
-| 6 | Impossible durations | 214 under 1 min (min 2 s); 455 over 120 min (up to ~300) | 669 | **Two causes:** start and end clicked together (< 1 min); doctor forgot to close the visit (> 2 h) | Drop the target (don't cap) |
-| 7 | Whitefield process change | `consult_start == check_in` in 1,753 rows, all Whitefield, March (936) + April (817); median 27–28 vs ~12 | 1,753 | Start time recorded at check-in, so target = wait + consult | Drop these rows from training |
-| 8 | End == start | 4 rows with 0 minutes | 4 | Same as the < 1 min rows in #6 | Covered by #6 |
+| 1 | Exact duplicate rows | 177 rows copy another row; all repeated `appointment_id`s identical | 177 (0.4%) | Export ran twice | Drop duplicates, keep one |
+| 2 | Inconsistent labels | `doctor`: 105 spellings for 21 doctors; `visit_type`: 9 for 2 | ~1.3k visit types + ~4% of doctors | Free-text entry | Normalise and map to the 21 doctors and 2 visit types |
+| 3 | Placeholder age 999 | max age 999 (42 rows); age 0 in 428 rows **(all Paediatrics: real babies)** | 42 | "Unknown" code | 999 → missing, then impute |
+| 4 | Missing age | 864 NaN (1.94%), flat across clinics; also why `age` is float | 864 | MCAR-like | Impute (+ missing flag) |
+| 5 | Missing `consult_end` | 120 NaN (0.27%), flat across clinics and months | 120 | MCAR-like | Drop from training (no target) |
+| 6 | Impossible durations | 214 under 1 min (min 1 s); 476 over 120 min (up to ~320) | 690 | **Two causes:** start and end clicked together (< 1 min); doctor forgot to close the visit (> 2 h) | Drop the target (don't cap) |
+| 7 | Whitefield process change | `consult_start == check_in` in 1,712 rows, all Whitefield, March (921) + April (791); median 26–27 vs ~12 | 1,712 | Start time recorded at check-in, so target = wait + consult | Drop these rows from training |
+| 8 | End == start | 0 rows with 0 minutes in this export | 0 | Same as the < 1 min rows in #6 | Covered by #6 |
 
 ### Answer key (`slotpred/_messy_export.py`, now safe to read)
 
@@ -88,22 +88,22 @@ The rule assumes symmetric data. Consult times are right-skewed (log-normal, A2)
 |---|---|---|
 | Forgot to close (120–300 min) | ~1% | #6 ✅ |
 | Start and end clicked together (< 1 min) | ~0.5% | #6, #8 ✅ |
-| Whitefield Mar–Apr: start = check-in | 1,753 | #7 ✅ |
-| `consult_end` missing | 100 | #5 ✅ |
+| Whitefield Mar–Apr: start = check-in | 1,712 | #7 ✅ |
+| `consult_end` missing | 120 | #5 ✅ |
 | Doctor-name variants | ~4% | #2 ✅ |
 | Visit-type spellings | ~3% | #2 ✅ |
-| Age missing, and 999 | 863 + 41 | #3, #4 ✅ |
-| Duplicate rows | 175 | #1 ✅ |
+| Age missing, and 999 | 864 + 42 | #3, #4 ✅ |
+| Duplicate rows | 177 | #1 ✅ |
 
 **8 of 8 found.**
 
-### Outlier rules scored against the hidden truth (43,822 rows with a target; 2,389 wrong)
+### Outlier rules scored against the hidden truth (44,394 rows with a target; 2,381 wrong)
 
 | Rule | Keeps | Flagged | Errors caught | Genuine visits thrown away | Errors missed (Whitefield) |
 |---|---|---|---|---|---|
-| Raw IQR | ≤ 31.3 min | 2,204 | 1,018 | **1,186** | 1,371 (1,157) |
-| Log IQR | 2.8–52.7 min | 782 | 703 | 79 | 1,686 (1,686) |
-| Domain (1–120 min) | 1–120 min | 669 | **669** | **0** | 1,720 (1,720) |
+| Raw IQR | ≤ 30.6 min | 2,465 | 1,020 | **1,445** | 1,361 (1,147) |
+| Log IQR | 2.6–53.2 min | 777 | 715 | 62 | 1,666 (1,666) |
+| Domain (1–120 min) | 1–120 min | 690 | **690** | **0** | 1,691 (1,691) |
 
 **No rule catches the Whitefield rows**: they look like plausible 20–35-minute visits. Only the time plot (Check 7) and the timestamp check found them.
 
@@ -111,15 +111,15 @@ The rule assumes symmetric data. Consult times are right-skewed (log-normal, A2)
 - **Capping is worse than dropping.** Capping a forgotten visit at 120 min invents a fake 120-minute consult; its true length is unknown. Drop its target.
 - **Dropping Whitefield's rows is not biased**, contrary to my first answer. The rows are chosen by clinic and month (MAR), which are unrelated to how long each visit really took, so the relationships the model learns stay correct; we only lose data (two months of one clinic). Re-estimating the start from a "typical duration" would **invent the target** (the model would learn our guesses), so don't.
 - **Why `age` is float:** NaN is a float value and an int column can't hold it, so pandas stores the whole column as float64. Nothing is "filled".
-- **`appointment_id`:** unique means useless as a feature. It also runs in time order (A000014 on 1 Jan, A043622 on 31 Aug), so it secretly encodes the date.
+- **`appointment_id`:** unique means useless as a feature. It also runs in time order (A000000 on 1 Jan, A044336 on 31 Aug), so it secretly encodes the date.
 - **`date`, `slot_time`:** known at booking, but use what they *mean* (weekday, hour) rather than the raw date. Every test date is later than every training date, so a model can't use a date it has never seen. (A4.)
 - **Impute using training rows only** (A4): medians computed on all data leak test information into training.
 - **Look, don't change:** my Check 1 cell modified `raw` and left a hidden `slot_minutes` column. In EDA, work on a copy.
 
 ## Gotchas
-- Raw-scale IQR on skewed data throws away genuine long visits (1,186 here). Use the log scale, and domain rules for what is impossible.
+- Raw-scale IQR on skewed data throws away genuine long visits (1,445 here). Use the log scale, and domain rules for what is impossible.
 - Statistics find unusual values; **systematic** errors (a process change) look normal. Plot medians over time and by place.
-- Age 0 looked suspicious, but all 407 rows are Paediatrics: real babies. Check before calling something an error.
+- Age 0 looked suspicious, but all 428 rows are Paediatrics: real babies. Check before calling something an error.
 - "Too good" or "too strange" numbers deserve a groupby by clinic and month before any fix.
 
 ## Self-check
@@ -157,9 +157,10 @@ No. It's recorded when the patient arrives, after booking.
 ## In my words
 - EDA: EDA means looking at the data before changing anything. The main rule is to look first, write down every problem with numbers, and fix things later in A4.
 
-- Outliers: Unusual is not the same as impossible. The domain rule (under 1 minute or over 2 hours, 669 rows) finds the impossible values. The raw IQR is skewed by the long right tail, so it flagged 2,204 rows, including real 32–40 min consults. Log-IQR (778 rows) is kinder to those, but it only gives a list to inspect, and the domain rule decides what to remove.
+- Outliers: Unusual is not the same as impossible. The domain rule (under 1 minute or over 2 hours, 690 rows) finds the impossible values. The raw IQR is skewed by the long right tail, so it flagged 2,465 rows, including real 31–46 min consults. Log-IQR (777 rows) is kinder to those, but it only gives a list to inspect, and the domain rule decides what to remove.
 
-- Whitefield: Each bad Whitefield row looks like a normal 25-minute visit, so no outlier rule caught it. The monthly plot per clinic and the consult_start == check_in check found it. 1,753 rows in March and April had the same timestamps, probably from a process change. Outlier rules find single bad values, and plots over time or by group find a whole period recorded differently.
+- Whitefield: Each bad Whitefield row looks like a normal 25-minute visit, so no outlier rule caught it. The monthly plot per clinic and the consult_start == check_in check found it. 1,712 rows in March and April had the same timestamps
+, probably from a process change. Outlier rules find single bad values, and plots over time or by group find a whole period recorded differently.
 
 ## New terms
 EDA, problem log, robust statistics, IQR, fences, domain rule, MCAR, MAR, MNAR, placeholder value, process change, hidden state

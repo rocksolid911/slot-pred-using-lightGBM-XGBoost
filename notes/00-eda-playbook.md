@@ -49,7 +49,7 @@ A quick start for steps 2–4 on any table: `from slotpred.eda import first_look
 
 **Red flags:** nobody can define the target precisely; the same column means different things in different sources.
 
-**In our project:** one row = one consult. Target = `consult_end − consult_start`, the time the doctor is occupied (A1). Prediction moment = **booking**, days before the visit. The hospital's reference list: 21 doctors, 8 departments, 5 clinics, 3 visit types.
+**In our project:** one row = one consult. Target = `consult_end − consult_start`, the time the doctor is occupied (A1). Prediction moment = **booking**, days before the visit. The hospital's reference list: 21 doctors, 8 departments, 5 clinics, 2 visit types (new, follow-up).
 
 ### 2 · Structure: types, keys, duplicates
 
@@ -164,7 +164,8 @@ For **every column**, answer: *is it known at the prediction moment?*
 | Duplicates across the split | the same visit in train and test | The model is tested on what it has seen |
 | Aggregates over all data | "doctor's average minutes" over every row | Includes the row's own target and the future |
 
-**In our project:** allowed at booking: date and slot time (as weekday and hour), clinic, doctor, department, age, interpreter, prior reports, visit type, teleconsult. Not allowed: `check_in`, `consult_start`, `consult_end`, both IDs, the patient's name.
+**In our project:** allowed at booking: date and slot time (as weekday and hour), clinic, doctor, department, age, prior reports, visit type, teleconsult.
+ Not allowed: `check_in`, `consult_start`, `consult_end`, both IDs, the patient's name.
 
 ### 9 · Write-up
 

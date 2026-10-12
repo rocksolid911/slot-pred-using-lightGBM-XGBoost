@@ -37,8 +37,7 @@ def export(world: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     df.loc[messy, "doctor"] = [styles[i](s) for i, s in zip(rng.integers(0, 4, messy.sum()), df.loc[messy, "doctor"])]
 
     # 6. Visit type spelled inconsistently
-    spelling = {"new": ["New", "NEW", "new visit"], "follow-up": ["Follow-up", "follow up", "FOLLOW-UP", "followup"],
-                "review": ["Review", "report review"]}
+    spelling = {"new": ["New", "NEW", "new visit"], "follow-up": ["Follow-up", "follow up", "FOLLOW-UP", "followup"]}
     odd = rng.random(n) < 0.03
     df.loc[odd, "visit_type"] = [rng.choice(spelling[v]) for v in df.loc[odd, "visit_type"]]
 
@@ -49,7 +48,7 @@ def export(world: pd.DataFrame, rng: np.random.Generator) -> pd.DataFrame:
     df["age"] = age
 
     cols = ["appointment_id", "date", "slot_time", "clinic", "doctor", "department", "patient_id",
-            "patient_name", "age", "interpreter", "visit_type", "prior_reports", "teleconsult",
+            "patient_name", "age", "visit_type", "prior_reports", "teleconsult",
             "check_in", "consult_start", "consult_end"]
     raw = df[cols]
 

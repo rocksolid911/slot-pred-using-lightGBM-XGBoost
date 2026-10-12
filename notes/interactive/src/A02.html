@@ -17,14 +17,13 @@
     <p class="say">Extra work adds minutes; pace multiplies them; the Dermatology drift is added last. Pick a booking and follow the arithmetic. Defaults: Siddhant's new appointment with Dr Deepak on Monday at HSR.</p>
     <div class="controls">
       <div class="ctl"><label for="rDoc">Doctor</label><select id="rDoc"></select></div>
-      <div class="ctl"><label for="rVisit">Visit type</label><select id="rVisit"><option value="new">new</option><option value="follow-up">follow-up</option><option value="review">report review</option></select></div>
+      <div class="ctl"><label for="rVisit">Visit type</label><select id="rVisit"><option value="new">new</option><option value="follow-up">follow-up</option></select></div>
       <div class="ctl"><label for="rClinic">Clinic</label><select id="rClinic"></select></div>
       <div class="ctl"><label for="rDate">Date <output id="rDay"></output></label><input type="date" id="rDate" value="2026-03-09" min="2026-01-01" max="2026-08-31"></div>
       <div class="ctl"><label for="rTime">Slot time</label><select id="rTime"></select></div>
       <div class="ctl"><label for="rAge">Patient age</label><input type="number" id="rAge" min="0" max="100" value="34"></div>
       <div class="ctl"><label for="rReports">Prior reports</label><input type="number" id="rReports" min="0" max="20" value="2"></div>
       <div class="ctl"><span class="lbl">Extras</span>
-        <label class="check"><input type="checkbox" id="rInterp"> Interpreter needed</label>
         <label class="check"><input type="checkbox" id="rTele"> Video consult</label>
       </div>
       <div class="ctl"><label for="rQ">Book quantile <output id="rQOut"></output></label><input type="range" id="rQ" min="0.5" max="0.95" step="0.01" value="0.75"></div>
@@ -116,7 +115,7 @@ $("rDoc").addEventListener("input", () => { const d = D.doctors[+$("rDoc").value
 registerLab(function updRule() {
   const doc = D.doctors[+$("rDoc").value], dept = doc.dept, visit = $("rVisit").value;
   const age = Math.max(0, +$("rAge").value || 0), reports = Math.max(0, Math.round(+$("rReports").value || 0));
-  const interp = $("rInterp").checked, tele = $("rTele").checked, clinic = $("rClinic").value;
+  const tele = $("rTele").checked, clinic = $("rClinic").value;
   const date = $("rDate").value || "2026-03-09", hour = Math.floor(+$("rTime").value), q = +$("rQ").value, s = D.sigma;
   const wd = (new Date(date + "T00:00:00").getDay() + 6) % 7;
   $("rDay").textContent = DAYS[wd];
@@ -124,7 +123,7 @@ registerLab(function updRule() {
   if (wd === 6) { err.hidden = false; err.textContent = "Clinics are closed on Sunday. Pick another date."; return; }
   err.hidden = true;
   const base = D.departments[dept][D.visitTypes.indexOf(visit)];
-  const rep = D.reportMin * Math.min(reports, D.reportCap), itp = interp ? D.interpreterMin : 0, work = base + rep + itp;
+  const rep = D.reportMin * Math.min(reports, D.reportCap), work = base + rep;
   const fac = [
     ["Age 65+", age >= D.elderlyAge ? D.elderlyFactor : 1, `age ${age}`],
     ["Baby under 3 (Paediatrics)", dept === "Paediatrics" && age < D.infantAge ? D.infantFactor : 1, dept === "Paediatrics" ? `age ${age}` : "not Paediatrics"],
@@ -141,7 +140,6 @@ registerLab(function updRule() {
   $("ruleTable").innerHTML = `<tr><th>Step</th><th>Why</th><th class="num">Value</th></tr>` +
     row("Base", `${dept}, ${visit}`, f(base, 1)) +
     row("+ Reports", `${Math.min(reports, D.reportCap)} × ${D.reportMin}${reports > D.reportCap ? ` (capped at ${D.reportCap})` : ""}`, "+" + f(rep, 1)) +
-    row("+ Interpreter", interp ? "translating" : "not needed", "+" + f(itp, 1)) +
     row("= Work", "extra work is added", f(work, 1), "total") +
     fac.map(r => row("× " + r[0], r[2], "×" + f(r[1]))).join("") +
     row("= Pace", "pace multiplies", "×" + f(pace, 3), "total") +
@@ -150,7 +148,7 @@ registerLab(function updRule() {
     R`\qquad P_{${Math.round(q * 100)}} = ${f(exp)}\,e^{-\sigma^2/2 + ${f(invPhi(q), 3)}\,\sigma} = ${f(pq)}`);
   $("rExp").textContent = f(exp, 1) + " min"; $("rP50").textContent = f(med, 1) + " min";
   $("rPqLbl").textContent = `Safe, P${Math.round(q * 100)}`; $("rPq").textContent = f(pq, 1) + " min"; $("rSlot").textContent = slot + " min";
-}, ["rDoc", "rVisit", "rClinic", "rDate", "rTime", "rAge", "rReports", "rInterp", "rTele", "rQ"]);
+}, ["rDoc", "rVisit", "rClinic", "rDate", "rTime", "rAge", "rReports", "rTele", "rQ"]);
 
 /* Lab 2.2: log-normal noise */
 const zChart = makeChart("zChart", "Z", "", { yDisplay: false, ymin: 0 });
@@ -237,7 +235,8 @@ let hmMode = "fixed";
 bindOut("hmFix", v => v + " min"); bindOut("hmQ", v => "P" + Math.round(v * 100));
 function updHeat() {
   const s = D.sigma, F = +$("hmFix").value, q = +$("hmQ").value, rnd = $("hmRound").checked;
-  const cols = ["follow-up", "review", "new"], depts = Object.keys(D.departments);
+  const cols = ["follow-up", "new"], depts = Object.keys(D.departments);
+
   const slotOf = hmMode === "fixed" ? () => F : mm => { const x = quantileOf(mm, q, s); return rnd ? roundUp(x) : x; };
   let html = `<div class="h"></div>` + cols.map(c => `<div class="h">${c}</div>`).join(""), rates = [];
   for (const d of depts) {

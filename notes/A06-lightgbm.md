@@ -8,8 +8,8 @@
 0 Frame    → predict a SAFE slot (the q-point); q is the PO's setting (0.67 / 0.75 / 0.80)
 1 Collect  → simulator made the visits
 2 Explore  → found the problems
-3 Prepare  → fixed them; split: train Jan–May, valid June, test Jul–Aug; built the 11 feature columns
-4 Baseline → best simple method B3: 1.349 on June (q = 0.8); best possible 1.130
+3 Prepare  → fixed them; split: train Jan–May, valid June, test Jul–Aug; built the 10 feature columns
+4 Baseline → best simple method B3: 1.258 on June (q = 0.8); best possible 1.120
 5 Train    → HERE: boosting, by hand and with LightGBM
 ```
 
@@ -25,17 +25,17 @@ In A5 **we** chose the boxes (department + visit type). A **decision tree** asks
 - `min_child_samples = 30` → every box needs at least 30 training visits: **A5's backoff rule, built in**.
 
 ### Idea 2: boosting = many small trees, each fixing the last one's mistakes
-1. **Start:** one number for everyone, the training P80 = **17.95** (A5's B1).
+1. **Start:** one number for everyone, the training P80 = **17.48** (A5's B1).
 2. **Each round:** for every visit, a **push**: up by **q** if it would run late, down by **1 − q** if the doctor would sit idle.
 3. A small tree groups visits that need a similar push into boxes.
 4. Each box moves a **small step** (the **learning rate**, 0.05 = 5% of the way) towards the q-point of its own errors.
 
 Late pushes (0.8) are 4 times stronger than idle pushes (0.2), so predictions settle where about 80% of visits fit: the P80.
 
-**One June visit** (Neurology, new, Dr Meera Pillai, 2 reports, Tuesday 11:00):
+**One June visit** (Neurology, new, Dr Farah Siddiqui, 2 reports, Saturday 12:00):
 
 ```
-start 17.95 → 1 tree 18.82 → 2 trees 19.61 → 3 trees 20.26 → 10 trees 23.48 → 50 trees 27.67 → 184 trees 27.55
+start 17.48 → 1 tree 18.19 → 2 trees 19.03 → 3 trees 19.88 → 10 trees 24.26 → 50 trees 34.43 → 126 trees 36.81
 ```
 
 ### Idea 3: stop at the right time (early stopping)
@@ -89,25 +89,26 @@ All fitted on train (Jan–May), scored on June. q = 0.8 unless stated.
 
 | Rounds | 1 | 5 | 10 | 25 | 50 | 100 |
 |---|---|---|---|---|---|---|
-| June score | 2.104 | 1.761 | 1.567 | **1.336** | 1.210 | **1.161** |
+| June score | 2.166 | 1.750 | 1.511 | **1.264** | 1.172 | **1.141** |
 
-It starts at the training P80 (17.95, like B1), beats B3 (1.349) somewhere between rounds 10 and 25, and ends only 0.03 above the best possible (1.130). About 15 lines of my own code get within 0.013 of LightGBM.
+It starts at the training P80 (17.48, like B1), beats B3 (1.258) somewhere between rounds 25 and 50, and ends only 0.02 above the best possible (1.120). About 15 lines of my own code get within 0.003 of LightGBM.
 
 ### LightGBM vs the baselines (June)
 
 | q | B3 | LightGBM | Best possible | Gap closed | Coverage | On time (booked) | Idle min / visit |
 |---|---|---|---|---|---|---|---|
-| 0.67 | 1.628 | **1.407** | 1.381 | 89% | 0.664 | 84.0% | 4.18 |
-| 0.75 | 1.489 | **1.279** | 1.253 | 89% | 0.742 | 87.8% | 4.95 |
-| 0.80 | 1.349 | **1.148** | 1.130 | 92% | 0.791 | 90.4% | 5.56 |
+| 0.67 | 1.531 | **1.388** | 1.372 | 90% | 0.663 | 84.3% | 4.13 |
+| 0.75 | 1.391 | **1.260** | 1.243 | 89% | 0.746 | 88.6% | 4.90 |
+| 0.80 | 1.258 | **1.138** | 1.120 | 87% | 0.795 | 90.9% | 5.52 |
 
-- Early stopping kept 140 / 137 / 184 trees (q = 0.67 / 0.75 / 0.80).
-- Coverage is close to q at every q, just under by 0.006–0.009: the predictions mean what they claim.
+- Early stopping kept 122 / 107 / 126 trees (q = 0.67 / 0.75 / 0.80).
+- Coverage is close to q at every q, just under by 0.004–0.007: the predictions mean what they claim.
 - Gap closed = (B3 − LightGBM) ÷ (B3 − best possible).
 
 ### What it relied on (share of gain, q = 0.8)
 
-doctor 36% · visit type 36% · reports 9% · age 6% · hour 3% · interpreter 3% · clinic 2% · weekday 2% · teleconsult 1.5% · department 1% · age_missing 0.1%
+visit type 42% · doctor 41% · reports 6% · age 4.5% · hour 2% · clinic 2% · weekday 2% · teleconsult 1% · department 0.5% · age_missing 0.0%
+
 
 Department is low because each doctor belongs to one department (knowing the doctor already tells you the department). age_missing is almost zero because ages went missing at random (A3).
 

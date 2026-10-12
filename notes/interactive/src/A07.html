@@ -132,7 +132,8 @@ registerLab(function updGrow() {
   $("grSay").innerHTML = n === 1 ? "One box: both book the same P80 for everyone (like B1 in A5)."
     : `Numbers in the boxes are each box's P80 in minutes. Leaf by leaf spends its splits where they help most (many reports, age 65+); level by level must split every box on a level, even boxes that hardly need it. ` +
       (Math.abs(d) < 0.005 ? "Here both end up equally good." : d > 0 ? `With ${n} boxes, leaf by leaf scores <b>${f(d, 3)}</b> better on new visits.` : `Here level by level happens to score ${f(-d, 3)} better: leaf by leaf can chase noise when boxes get small, which is why LightGBM needs a minimum box size.`) +
-      ` Real trees do this over 11 columns and hundreds of rounds, so the gap mostly disappears: on your data the two libraries end within 0.01–0.015.`;
+      ` Real trees do this over 10 columns and hundreds of rounds, so the gap mostly disappears: on your data the two libraries end within 0.004–0.007.
+`;
 }, ["grLeaves"]);
 
 /* ---------- Lab 7.2: the real June comparison ---------- */

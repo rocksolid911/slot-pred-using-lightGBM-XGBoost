@@ -19,7 +19,7 @@ from .world import DOCTORS
 # The hospital's doctor roster: name -> department. In a real project this comes from HR.
 # Only names and departments are public; the doctor's speed in world.py is hidden and never used.
 ROSTER = {d.name: d.dept for d in DOCTORS}
-VISIT_TYPES = ("new", "follow-up", "review")
+VISIT_TYPES = ("new", "follow-up")
 
 # Domain rule from A3: a consult under 1 minute or over 2 hours is a recording error, not a visit.
 MIN_MINUTES, MAX_MINUTES = 1.0, 120.0
@@ -66,10 +66,10 @@ def normalise_doctor(name):
 
 
 def normalise_visit_type(value):
-    """Map one spelling to "new" | "follow-up" | "review", or None if it isn't recognisable.
+    """Map one spelling to "new" | "follow-up", or None if it isn't recognisable.
 
     Spellings seen in the export: "New", "NEW", "new visit", "Follow-up", "follow up", "FOLLOW-UP",
-    "followup", "Review", "report review", and the clean forms themselves.
+    "followup", and the clean forms themselves.
     """
     if not isinstance(value, str):
         return None
@@ -78,8 +78,6 @@ def normalise_visit_type(value):
         return "new"
     if value_clean in {"follow-up", "follow up", "followup"}:
         return "follow-up"
-    if value_clean in {"review", "report review"}:
-        return "review"
     return None
 
 

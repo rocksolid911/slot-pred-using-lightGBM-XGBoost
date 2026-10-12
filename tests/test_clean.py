@@ -43,7 +43,6 @@ def test_ambiguous_initials_give_none():
     ("new", "new"), ("New", "new"), ("NEW", "new"), ("new visit", "new"),
     ("follow-up", "follow-up"), ("Follow-up", "follow-up"), ("follow up", "follow-up"),
     ("FOLLOW-UP", "follow-up"), ("followup", "follow-up"),
-    ("review", "review"), ("Review", "review"), ("report review", "review"),
 ])
 def test_visit_type_spellings(spelling, expected):
     assert c.normalise_visit_type(spelling) == expected

@@ -12,7 +12,7 @@ def _visits(**cols):
     n = max(len(v) for v in cols.values())
     base = dict(date=["2026-03-02"] * n, slot_time=["10:15"] * n, department=["Cardiology"] * n,
                 visit_type=["new"] * n, doctor=["Anita Sharma"] * n, clinic=["HSR"] * n,
-                age=[40.0] * n, interpreter=[False] * n, teleconsult=[False] * n, prior_reports=[1] * n,
+                age=[40.0] * n, teleconsult=[False] * n, prior_reports=[1] * n,
                 appointment_id=[f"A{i}" for i in range(n)], patient_id=["P1"] * n, patient_name=["X"] * n,
                 check_in=["2026-03-02 10:05:00"] * n, consult_start=["2026-03-02 10:20:00"] * n,
                 consult_end=["2026-03-02 10:35:00"] * n, minutes=[15.0] * n)

@@ -19,8 +19,7 @@
       <div class="ctl"><label for="fAge">Patient age <output id="fAgeOut"></output></label>
         <div class="inline"><input type="number" id="fAge" min="0" max="110" step="1" value="34"><label class="check"><input type="checkbox" id="fAgeUnknown"> unknown</label></div></div>
       <div class="ctl"><label for="fReports">Prior reports to read <output id="fReportsOut"></output></label><input type="range" id="fReports" min="0" max="12" step="1" value="2"></div>
-      <div class="ctl checks"><label class="check"><input type="checkbox" id="fInterp"> Needs an interpreter</label>
-        <label class="check"><input type="checkbox" id="fTele"> Video (tele) consult</label></div>
+      <div class="ctl checks"><label class="check"><input type="checkbox" id="fTele"> Video (tele) consult</label></div>
     </form>
     <div class="settings">
       <div class="ctl"><label for="fModel">Model</label><select id="fModel">
@@ -88,7 +87,8 @@
       <li><b>The safety level is a business decision.</b> P67, P75 or P80 trades patient waiting against doctor idle time; the product owner picks from the table above.</li>
       <li><b>Safe rollout.</b> Run in shadow mode first (predict, compare, don't book), keep 15 minutes as the fallback if the model is unavailable.</li>
     </ul>
-    <p class="say sub">Inputs used, all known at booking time: doctor, department, visit type, clinic, weekday, hour, patient age (or unknown), prior reports, interpreter, video consult. Models: LightGBM and XGBoost with the quantile objective, one model per safety level, both trained the same way; LightGBM was chosen over XGBoost and simple lookup tables on June data. Visit types offered: new and follow-up (report-review visits in the history still count in the results).</p>
+    <p class="say sub">Inputs used, all known at booking time: doctor, department, visit type, clinic, weekday, hour, patient age (or unknown), prior reports, video consult. Models: LightGBM and XGBoost with the quantile objective, one model per safety level, both trained the same way; LightGBM was chosen over XGBoost and simple lookup tables on June data. Visit types: new and follow-up.</p>
+
   </div>
 </section>
 
@@ -159,12 +159,12 @@ function readBooking() {
   const ageUnknown = $("fAgeUnknown").checked, age = +$("fAge").value;
   return { isNew, doctor, dept, visit: $("fVisit").value, clinic: $("fClinic").value, date,
            weekday: date ? (date.getDay() + 6) % 7 : null, hour: +$("fTime").value.slice(0, 2),
-           ageUnknown, age, reports: +$("fReports").value, interp: $("fInterp").checked, tele: $("fTele").checked };
+           ageUnknown, age, reports: +$("fReports").value, tele: $("fTele").checked };
 }
 function encode(b) {
   const code = (col, v) => M.categories[col].indexOf(v);
   return [code("department", b.dept), code("visit_type", b.visit), b.doctor ? code("doctor", b.doctor) : -1, code("clinic", b.clinic),
-          b.ageUnknown ? M.age_fill : b.age, b.ageUnknown ? 1 : 0, b.interp ? 1 : 0, b.tele ? 1 : 0, b.reports, b.weekday, b.hour];
+          b.ageUnknown ? M.age_fill : b.age, b.ageUnknown ? 1 : 0, b.tele ? 1 : 0, b.reports, b.weekday, b.hour];
 }
 function updDemo() {
   const b = readBooking(), err = $("bkErr");
@@ -192,12 +192,13 @@ function updDemo() {
   const day = DAYS[b.weekday];
   $("bkSay").innerHTML = (b.isNew
       ? `<b>New doctor:</b> neither model has history for them, so this is the typical slot for a ${b.dept} ${b.visit} visit (the department fallback), the same for both models.`
-      : `Dr ${b.doctor} (${b.dept}), ${b.visit} visit, ${day} ${$("fTime").value} at ${b.clinic}, ${b.reports} report${b.reports === 1 ? "" : "s"}${b.interp ? ", interpreter" : ""}${b.tele ? ", video" : ""}, age ${b.ageUnknown ? "unknown" : b.age}.`) +
+      : `Dr ${b.doctor} (${b.dept}), ${b.visit} visit, ${day} ${$("fTime").value} at ${b.clinic}, ${b.reports} report${b.reports === 1 ? "" : "s"}${b.tele ? ", video" : ""}, age ${b.ageUnknown ? "unknown" : b.age}.`) +
     (g > 1 && book(raw["0.50"]) === book(raw["0.90"]) ? ` Every safety level books the same ${book(raw[q])} minutes here: from P50 to P90 the predictions differ by less than one ${g}-minute block.` : "") +
     ` The product owner sets the final safety level.`;
   updTrade();
 }
-registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele", "fQ", "fGrid", "fModel"]);
+registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fTele",
+ "fQ", "fGrid", "fModel"]);
 $("fModel").addEventListener("input", () => { updBoard(); updSlices(); });
 $("bk").addEventListener("submit", e => e.preventDefault());
 

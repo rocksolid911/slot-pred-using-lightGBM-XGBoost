@@ -4,7 +4,8 @@ One line per term, plus the lesson where it is explained properly. Keep the list
 
 | Term | Meaning | Lesson |
 |---|---|---|
-| Additive effect | A factor that adds fixed minutes whatever the base (interpreter +4) | [A2](A02-simulator.md) |
+| Additive effect | A factor that adds fixed minutes whatever the base (prior reports +1.3 each) | [A2](A02-simulator.md) |
+
 | Backoff | If a box has too few training visits (or none, like a new doctor), use the bigger box it belongs to instead | [A5](A05-baselines.md) |
 | Baseline | The simple rule a model must beat to be worth deploying (here: a fixed 15-min slot) | [A1](A01-framing.md) |
 | Booked slot | The predicted P-point rounded **up** to the 5-minute grid; what the clinic actually books (16.6 → 20) | [A5](A05-baselines.md) |

@@ -125,7 +125,8 @@ function updFunnel() {
   }).join("") + `<tr class="total"><td>${countMode === "first" ? "Removed in total" : "Sum of the counts"}</td><td class="num">${total.toLocaleString()}</td><td>${countMode === "first" ? `${P.raw.toLocaleString()} → <b>${P.clean.toLocaleString()}</b> clean visits` : `double-counts ${(total - (P.raw - P.clean)).toLocaleString()} rows`}</td></tr>`;
   $("fnSay").innerHTML = countMode === "first"
     ? `Every removed row is counted once, so the steps add up exactly: ${P.raw.toLocaleString()} − ${(P.raw - P.clean).toLocaleString()} = <b>${P.clean.toLocaleString()}</b>. Then the split by time cuts the clean visits into train, valid and test (chart).`
-    : `Counted on their own, the problems overlap: <b>9</b> Whitefield rows were duplicates and <b>4</b> had no <code>consult_end</code> (1,753 → 1,740); <b>3</b> out-of-range rows were duplicates and <b>29</b> sat in the Whitefield window (669 → 637). That's exactly your reconciliation in the notebook.`;
+    : `Counted on their own, the problems overlap: <b>5</b> Whitefield rows were duplicates and <b>3</b> had no <code>consult_end</code> (1,712 → 1,704); <b>4</b> out-of-range rows were duplicates and <b>18</b> sat in the Whitefield window (690 → 668).
+ That's exactly your reconciliation in the notebook.`;
   const C = { train: css("--accent"), valid: css("--idle"), test: css("--late") };
   fnChart.data.datasets = ["train", "valid", "test"].map(s => ({ label: `${s} (${P.perMonth[s].reduce((a, b) => a + b).toLocaleString()})`, data: P.perMonth[s], backgroundColor: hexA(C[s], 0.75), borderWidth: 0 }));
   paint(fnChart);

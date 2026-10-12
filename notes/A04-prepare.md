@@ -38,7 +38,7 @@ raw ─► 1 duplicates ─► 2 labels ─► 3 age 999 ─► 4 minutes ─►
 | A3 log # | Problem | Step | Fix |
 |---|---|---|---|
 | 1 | duplicates | 1 | drop |
-| 2 | doctor and visit-type spellings | 2 | map to 21 doctors and 3 visit types |
+| 2 | doctor and visit-type spellings | 2 | map to 21 doctors and 2 visit types |
 | 3 | age 999 | 3 | → missing |
 | 4 | missing age | 7 | training-row median + `age_missing` flag |
 | 5 | missing `consult_end` | 5 | drop (no target) |
@@ -51,7 +51,7 @@ raw ─► 1 duplicates ─► 2 labels ─► 3 age 999 ─► 4 minutes ─►
 |---|---|---|
 | department, visit_type, doctor, clinic | normalised labels | `appointment_id` (it encodes the date) |
 | age, age_missing | step 7 | `patient_id`, `patient_name` |
-| interpreter, teleconsult, prior_reports | as they are | `check_in`, `consult_start`, `consult_end` |
+| teleconsult, prior_reports | as they are | `check_in`, `consult_start`, `consult_end` |
 | weekday, hour | `date`, `slot_time` | the raw `date` (test dates never appear in training) |
 
 ## Maths
@@ -65,14 +65,14 @@ $$
 
 A random split draws test rows from the mix of all months, $P_{\text{mix}} = \sum_m w_m P_m$, where $w_m$ is month $m$'s share of rows. If nothing changes over time, $P_{\text{mix}} = P_{\text{future}}$ and both estimates agree. **With drift they differ**, and the random split is optimistic, because rows from the test months sit in training.
 
-**Worked example (the department × visit-type median, from the lesson's probe):**
+**Worked example (the department × visit-type median, Experiment 1 below):**
 
 | | Overall MAE | Dermatology MAE | Dermatology bias (actual − predicted) |
 |---|---|---|---|
-| Random 80/20 split | 3.57 | 2.84 | +0.68 min |
-| Split by time (Jan–May → Jul–Aug) | 3.83 | 4.13 | **+3.66 min** |
+| Random 80/20 split | 3.33 | 2.65 | +0.54 min |
+| Split by time (Jan–May → Jul–Aug) | 3.56 | 3.93 | **+3.58 min** |
 
-The +3 minute Dermatology drift from 1 July (A2) is visible only with the split by time. Dr Nikhil Verma (joined 1 July, 500 visits) is a cold start only with the split by time, which is the deployed reality.
+The +3 minute Dermatology drift from 1 July (A2) is visible only with the split by time. Dr Nikhil Verma (joined 1 July, 532 visits) is a cold start only with the split by time, which is the deployed reality.
 
 ### Filling missing age: fill + flag, fitted on train
 
@@ -92,7 +92,7 @@ $$
 | Statistic | Fit on train | Fit on all months | Effect |
 |---|---|---|---|
 | Median age (an input) | 42 | 42 | none here |
-| Per-doctor median minutes (from the **target**), test MAE | 3.73 | 3.53 | looks 5% better than reality |
+| Per-doctor median minutes (from the **target**), test MAE | 3.47 | 3.26 | looks 6% better than reality |
 
 ## Code
 | Piece | Where | Written by |
@@ -112,43 +112,43 @@ $$
 
 | Step | Removed | A3 log | Why the counts differ |
 |---|---|---|---|
-| 1 exact duplicates | 175 | 175 | same |
+| 1 exact duplicates | 177 | 177 | same |
 | 2 unrecognised doctor / visit type | 0 | — | every spelling mapped |
-| 5a `consult_end` missing | 100 | 100 | same |
-| 5b Whitefield March–April | 1,740 | 1,753 | 9 were duplicates (gone in step 1); 4 had no `consult_end` (counted under 5a) |
-| 5c under 1 or over 120 min | 637 | 669 | 3 were duplicates; 29 were also in the Whitefield window (counted under 5b) |
-| **Total** | 43,922 → **41,270** clean visits | | |
+| 5a `consult_end` missing | 120 | 120 | same |
+| 5b Whitefield March–April | 1,704 | 1,712 | 5 were duplicates (gone in step 1); 3 had no `consult_end` (counted under 5a) |
+| 5c under 1 or over 120 min | 668 | 690 | 4 were duplicates; 18 were also in the Whitefield window (counted under 5b) |
+| **Total** | 44,514 → **41,845** clean visits | | |
 
 ### Splits
 
 | Split | Rows | First | Last |
 |---|---|---|---|
-| train | 24,818 | 2026-01-01 | 2026-05-30 (31 May is a Sunday) |
-| valid | 5,515 | 2026-06-01 | 2026-06-30 |
-| test | 10,937 | 2026-07-01 | 2026-08-31 |
+| train | 24,763 | 2026-01-01 | 2026-05-30 (31 May is a Sunday) |
+| valid | 5,418 | 2026-06-01 | 2026-06-30 |
+| test | 11,664 | 2026-07-01 | 2026-08-31 |
 
-- `fit_prep` on train: age_fill = **42**; 8 departments, 3 visit types, **20** doctors (Nikhil Verma is absent), 5 clinics.
-- Nikhil Verma: 0 / 0 / **500** visits; in `X_test` his `doctor` is NaN (an unseen level).
-- `age_missing == 1`: 494 / 136 / 221 rows, all filled with 42.
+- `fit_prep` on train: age_fill = **42**; 8 departments, 2 visit types, **20** doctors (Nikhil Verma is absent), 5 clinics.
+- Nikhil Verma: 0 / 0 / **532** visits; in `X_test` his `doctor` is NaN (an unseen level).
+- `age_missing == 1`: 498 / 100 / 275 rows, all filled with 42.
 
 ### Experiment 1: random split vs split by time (department × visit-type median)
 
 | | MAE | Derm MAE | Derm bias | Test rows |
 |---|---|---|---|---|
-| Split by time (Jan–May → Jul–Aug) | 3.83 | 4.13 | **+3.66** | 10,937 |
-| Random 80/20 | **3.54** | 3.10 | +0.83 | 8,254 |
-| Same random-split model, Jul–Aug rows only | 3.84 | 4.19 | +3.29 | 2,234 |
+| Split by time (Jan–May → Jul–Aug) | 3.56 | 3.93 | **+3.58** | 11,664 |
+| Random 80/20 | **3.33** | 2.65 | +0.54 | 8,369 |
+| Same random-split model, Jul–Aug rows only | 3.42 | 3.55 | +3.03 | 2,381 |
 
-The random split's good score comes from easy pre-drift months in its test set. On the future months it's as bad as the honest number; it only *hid* the drift. Row 3's bias is slightly smaller than row 1's because some July–August rows leaked into training.
+The random split's good score comes from easy pre-drift months in its test set. On the future months it's nearly as bad as the honest number; it only *hid* the drift. Row 3 is a little better than row 1 (3.42 vs 3.56, bias +3.03 vs +3.58) only because some July–August rows leaked into its training.
 
 ### Experiment 2: what the learned step may see
 
 | Median fitted on… | Key | Test MAE | Derm MAE | Derm bias |
 |---|---|---|---|---|
-| train only (honest) | department × visit type | 3.83 | 4.13 | +3.66 |
-| all months (leaky) | department × visit type | 3.77 | 3.72 | +2.99 |
-| train only (honest) | doctor × visit type | 3.73 | 4.12 | +3.62 |
-| all months (leaky) | doctor × visit type | 3.53 | 3.70 | +2.96 |
+| train only (honest) | department × visit type | 3.56 | 3.93 | +3.58 |
+| all months (leaky) | department × visit type | 3.51 | 3.50 | +2.92 |
+| train only (honest) | doctor × visit type | 3.47 | 3.80 | +3.45 |
+| all months (leaky) | doctor × visit type | 3.26 | 3.37 | +2.77 |
 
 Age median: 42 on train, 42 on all months; no visible leak here, but the rule still applies.
 
@@ -170,9 +170,10 @@ Learned: the percentile comes from many rows. Compute it on the training rows on
 It needs `minutes`, which needs `consult_end`, which doesn't exist until the visit is over.
 </details>
 
-<details><summary>Q3. "Random split gives 3.57, better than your 3.83." Reply?</summary>
+<details><summary>Q3. "Random split gives 3.33, better than your 3.56." Reply?</summary>
 
-They measure different things. 3.57 is the error on a mix of months whose future rows leaked into training; 3.83 is the error on unseen future months, the deployed situation. The random split hides the Dermatology drift and the new doctor. The honest number is 3.83.
+They measure different things. 3.33 is the error on a mix of months whose future rows leaked into training; 3.56 is the error on unseen future months, the deployed situation. The random split hides the Dermatology drift and the new doctor. The honest number is 3.56.
+
 </details>
 
 <details><summary>Q4. Why add <code>age_missing</code> instead of only filling with 42?</summary>
