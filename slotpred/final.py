@@ -5,6 +5,7 @@
 What it does
     1. Refit the chosen model (LightGBM, A7) on train + valid (Jan-Jun). The number of trees is the one
        early stopping picked on June (A6), so nothing is chosen by looking at the test months.
+       XGBoost (A7) is refitted the same way, so the demo page can show both side by side.
        Allowed and normal (A4 lab 4.3): valid was for choosing settings; once chosen, its rows can train.
     2. Refit the A5 baselines on Jan-Jun too, so the comparison is fair.
     3. Score everything on Jul-Aug: overall, by department (the Dermatology change from 1 July),
@@ -12,7 +13,7 @@ What it does
     4. Build the trade-off table the PO chooses q from: on-time share, late and idle minutes,
        average slot and patients per 4-hour session, for each q, next to today's 15-minute rule.
 
-Writes outputs/final/test_results.json, the final models (outputs/final/lgbm_q<q>.txt) and
+Writes outputs/final/test_results.json, the final models (outputs/final/lgbm_q<q>.txt, xgb_q<q>.json) and
 outputs/final/demo_model.json (the trees in a form the demo page can run).
 """
 import json
@@ -26,6 +27,7 @@ from .config import DATA, OUT, Q_CANDIDATES, SLOT_GRID
 from .features import CATEGORICAL, FEATURES, fit_prep, make_xy
 from .metrics import evaluate, to_slot
 from .prepare import load_prepared
+from . import train_xgb
 from .train_lgbm import fit_one, make_model
 from .world import NOISE_SIGMA
 
@@ -47,6 +49,18 @@ def refit(train_valid, state, trees):
     """Final models on Jan-Jun with the June-chosen number of trees (no early stopping, no test data)."""
     X, y = make_xy(train_valid, state)
     return {q: make_model(q, n_estimators=n).fit(X, y) for q, n in trees.items()}
+
+
+def choose_trees_xgb(splits, state, qs=Q_DEMO):
+    """The same for XGBoost. Its best_iteration counts from 0, so the number of trees is one more."""
+    Xtr, ytr = make_xy(splits["train"], state)
+    Xva, yva = make_xy(splits["valid"], state)
+    return {q: int(train_xgb.fit_one(q, Xtr, ytr, Xva, yva).best_iteration) + 1 for q in qs}
+
+
+def refit_xgb(train_valid, state, trees):
+    X, y = make_xy(train_valid, state)
+    return {q: train_xgb.make_model(q, n_estimators=n, early_stopping_rounds=None).fit(X, y) for q, n in trees.items()}
 
 
 def booked_summary(y, slot):
@@ -90,6 +104,27 @@ def export_trees(model, state):
     return [node(t["tree_structure"]) for t in dump["tree_info"]]
 
 
+def export_xgb_trees(model):
+    """The same for an XGBoost model, as {"base": intercept, "trees": [...]}. Two differences from LightGBM:
+    a number goes left when x < t (strictly; stored as "lt"), and the prediction starts from the intercept.
+    Category codes are pandas' codes, the same positions as state.categories."""
+    names = model.get_booster().feature_names
+
+    def node(n):
+        if "leaf" in n:     # 5 decimals: at most 0.003 min over 600 trees, and keeps the page under 16 MB
+            return {"v": round(n["leaf"], 5)}
+        kids = {c["nodeid"]: c for c in n["children"]}
+        d = {"f": names.index(n["split"]), "l": node(kids[n["yes"]]), "r": node(kids[n["no"]])}
+        if isinstance(n["split_condition"], list):      # categorical: the listed categories go to "yes"
+            d["c"] = [int(c) for c in n["split_condition"]]
+        else:
+            d["lt"] = n["split_condition"]
+        return d
+
+    return {"base": float(np.ravel(model.intercept_)[0]),
+            "trees": [node(json.loads(t)) for t in model.get_booster().get_dump(dump_format="json")]}
+
+
 def main():
     splits, _ = load_prepared()
     train_valid = pd.concat([splits["train"], splits["valid"]], ignore_index=True)
@@ -98,6 +133,8 @@ def main():
 
     trees = choose_trees(splits, fit_prep(splits["train"]))
     models = refit(train_valid, state_tv, trees)
+    xtrees = choose_trees_xgb(splits, fit_prep(splits["train"]))
+    xmodels = refit_xgb(train_valid, state_tv, xtrees)
     X_test, y_test = make_xy(test, state_tv)
     y = y_test.to_numpy()
 
@@ -110,31 +147,39 @@ def main():
     for q in Q_CANDIDATES:
         b3 = GroupQuantile(["doctor", "visit_type"], q, min_n=30,
                            parent=GroupQuantile(["department", "visit_type"], q)).fit(train_valid)
-        lgbm = models[q].predict(X_test)
+        lgbm, xg = models[q].predict(X_test), xmodels[q].predict(X_test)
         # A5's backoff for the model: a doctor the model never saw gets the lookup table's
         # department + visit type number instead (the model leans on `doctor`, so unknown doctors drift)
         unseen = ~test["doctor"].isin(state_tv.categories["doctor"]).to_numpy()
-        hybrid = np.where(unseen, b3.predict(test), lgbm)
+        hybrid, xhybrid = np.where(unseen, b3.predict(test), lgbm), np.where(unseen, b3.predict(test), xg)
         preds = {"today (fixed 15)": today, "B3 lookup table": b3.predict(test), "LightGBM": lgbm,
-                 "LightGBM + new-doctor backoff": hybrid, "Oracle (floor)": oracle_quantile(expected, q, NOISE_SIGMA)}
+                 "LightGBM + new-doctor backoff": hybrid, "XGBoost": xg, "XGBoost + new-doctor backoff": xhybrid,
+                 "Oracle (floor)": oracle_quantile(expected, q, NOISE_SIGMA)}
         board += [evaluate(y, p, q, name) for name, p in preds.items()]
         tradeoff[f"Model q={q:.2f}"] = booked_summary(y, to_slot(hybrid))
+        tradeoff[f"XGBoost q={q:.2f}"] = booked_summary(y, to_slot(xhybrid))
         by_slice[f"{q:.2f}"] = slices(test, y, {k: preds[k] for k in
-                                                ("today (fixed 15)", "B3 lookup table", "LightGBM", "LightGBM + new-doctor backoff")})
+                                                ("today (fixed 15)", "B3 lookup table", "LightGBM", "LightGBM + new-doctor backoff",
+                                                 "XGBoost", "XGBoost + new-doctor backoff")})
 
     # every demo q on the test visits (model + new-doctor fallback), for the page's live trade-off table.
     # Models for different q are trained separately and can cross (a P85 below the P80 for some visit);
     # taking the running maximum over q keeps them in order, the standard fix ("rearrangement").
     unseen = ~test["doctor"].isin(state_tv.categories["doctor"]).to_numpy()
     lookup = {q: GroupQuantile(["department", "visit_type"], q).fit(train_valid).predict(test) for q in Q_DEMO}
-    stack = np.maximum.accumulate(np.array([np.where(unseen, lookup[q], models[q].predict(X_test)) for q in Q_DEMO]), axis=0)
+    def stacked(ms):
+        stack = np.maximum.accumulate(np.array([np.where(unseen, lookup[q], ms[q].predict(X_test)) for q in Q_DEMO]), axis=0)
+        return {f"{q:.2f}": [round(float(v), 2) for v in row] for q, row in zip(Q_DEMO, stack)}
     demo_test = {"y": [round(float(v), 2) for v in y], "q": [f"{q:.2f}" for q in Q_DEMO],
-                 "pred": {f"{q:.2f}": [round(float(v), 2) for v in row] for q, row in zip(Q_DEMO, stack)}}
+                 "pred": {"LightGBM": stacked(models), "XGBoost": stacked(xmodels)}}
 
     FINAL.mkdir(parents=True, exist_ok=True)
     for q, m in models.items():
         m.booster_.save_model(FINAL / f"lgbm_q{q:.2f}.txt")
-    results = {"trees": {f"{q:.2f}": t for q, t in trees.items()}, "test_rows": int(len(test)),
+    for q, m in xmodels.items():
+        m.save_model(FINAL / f"xgb_q{q:.2f}.json")
+    results = {"trees": {f"{q:.2f}": t for q, t in trees.items()}, "xgb_trees": {f"{q:.2f}": t for q, t in xtrees.items()},
+               "test_rows": int(len(test)),
                "train_rows": int(len(train_valid)), "board": board, "tradeoff": tradeoff, "slices": by_slice,
                "demo_test": demo_test}
     (FINAL / "test_results.json").write_text(json.dumps(results, indent=1), encoding="utf-8")
@@ -146,11 +191,13 @@ def main():
     demo = {"features": FEATURES, "categorical": CATEGORICAL, "categories": state_tv.categories,
             "backoff": backoff, "doctor_department": doctors,
             "age_fill": state_tv.age_fill, "grid": SLOT_GRID,
-            "models": {f"{q:.2f}": export_trees(m, state_tv) for q, m in models.items()}}
+            "models": {f"{q:.2f}": export_trees(m, state_tv) for q, m in models.items()},
+            "xgb_models": {f"{q:.2f}": export_xgb_trees(m) for q, m in xmodels.items()}}
     (FINAL / "demo_model.json").write_text(json.dumps(demo, separators=(",", ":")), encoding="utf-8")
 
     show = pd.DataFrame(board)[["method", "q", "pinball", "coverage", "booked_on_time", "booked_idle_min", "booked_slot_min"]]
     print("trees chosen on June:", trees)
+    print("XGBoost trees chosen on June:", xtrees)
     print(show.round(3).to_string(index=False))
     print(pd.DataFrame(tradeoff).T.round(3).to_string())
     return results, models, state_tv

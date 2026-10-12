@@ -1,7 +1,7 @@
 <header>
   <div class="eyebrow">OPD scheduling · trained model · results on July–August 2026</div>
   <h1>OPD Slot Predictor</h1>
-  <p class="sub">Enter a booking and get the slot length to book, from a LightGBM model trained on January–June visits. Below the demo: how the model did on July–August, two months it never saw, against today's fixed 15-minute slot.</p>
+  <p class="sub">Enter a booking and get the slot length to book, from a model trained on January–June visits: LightGBM or XGBoost, your choice. Below the demo: how the models did on July–August, two months they never saw, against today's fixed 15-minute slot.</p>
   <p class="note">All visits are <b>simulated</b> (a learning project): the doctors, clinics and patients are invented, and no real patient data was used.</p>
 </header>
 
@@ -12,7 +12,7 @@
       <div class="ctl"><label for="fDoctor">Doctor</label><select id="fDoctor"></select></div>
       <div class="ctl" id="deptBox" hidden><label for="fDept">Department of the new doctor</label><select id="fDept"></select></div>
       <div class="ctl"><label for="fVisit">Visit type</label><select id="fVisit">
-        <option value="new">New</option><option value="follow-up">Follow-up</option><option value="review">Report review</option></select></div>
+        <option value="new">New</option><option value="follow-up">Follow-up</option></select></div>
       <div class="ctl"><label for="fClinic">Clinic</label><select id="fClinic"></select></div>
       <div class="ctl"><label for="fDate">Date</label><input type="date" id="fDate"></div>
       <div class="ctl"><label for="fTime">Slot time</label><select id="fTime"></select></div>
@@ -23,6 +23,8 @@
         <label class="check"><input type="checkbox" id="fTele"> Video (tele) consult</label></div>
     </form>
     <div class="settings">
+      <div class="ctl"><label for="fModel">Model</label><select id="fModel">
+        <option value="LightGBM" selected>LightGBM (picked on June data)</option><option value="XGBoost">XGBoost</option></select></div>
       <div class="ctl"><label for="fQ">Safety level (business setting)</label><select id="fQ"></select></div>
       <div class="ctl"><label for="fGrid">Booking grid (slots are booked in blocks of)</label><select id="fGrid">
         <option value="1">1 minute (no rounding)</option><option value="5" selected>5 minutes (today's scheduler)</option>
@@ -33,7 +35,7 @@
     <p class="say" id="bkSay"></p>
     <details id="allQ"><summary>This booking at every safety level</summary>
       <div class="tablewrap"><table>
-        <thead><tr><th>Safety level</th><th class="num">Model's prediction</th><th class="num">Booked slot</th><th>Meaning</th></tr></thead>
+        <thead><tr><th>Safety level</th><th class="num">LightGBM</th><th class="num">XGBoost</th><th class="num">Booked slot (<span id="allQModel"></span>)</th><th>Meaning</th></tr></thead>
         <tbody id="allQBody"></tbody>
       </table></div>
     </details>
@@ -41,7 +43,7 @@
 
   <div class="lab" id="results">
     <div class="lab-head"><span class="tag">Results</span><h3>July–August: <span id="nTest"></span> visits the model never saw</h3></div>
-    <p class="say">The model was trained on <span id="nTrain"></span> visits from January–June and scored <b>once</b> on July–August. Each row books the model's prediction rounded up to the <b id="gridName"></b> grid chosen above; "today" books 15 minutes for everyone. Which safety level to use is the product owner's choice (★ marks the three candidates from their answers in A1); this table is what they choose from. Change the grid or safety level above and it updates.</p>
+    <p class="say">The <b class="modelName"></b> model was trained on <span id="nTrain"></span> visits from January–June and scored <b>once</b> on July–August. Each row books the model's prediction rounded up to the <b id="gridName"></b> grid chosen above; "today" books 15 minutes for everyone. Which safety level to use is the product owner's choice (★ marks the three candidates from their answers in A1); this table is what they choose from. Change the grid or safety level above and it updates.</p>
     <div class="tablewrap"><table>
       <thead><tr><th>Booking rule</th><th class="num">Visits on time</th><th class="num">Late min / visit</th><th class="num">Idle min / visit</th><th class="num">Average slot</th><th class="num">Patients per 4 h</th></tr></thead>
       <tbody id="tradeoff"></tbody>
@@ -52,7 +54,7 @@
 
   <div class="lab" id="quality">
     <div class="lab-head"><span class="tag">Quality</span><h3>How close to the best possible</h3></div>
-    <p class="say">The score (pinball loss) charges each late minute q and each idle minute 1 − q, so lower is better. "Best possible" knows the simulator's hidden rule; only random luck is left. The lookup table is the best simple rule (median-style P-point per doctor and visit type).</p>
+    <p class="say">The score (pinball loss) charges each late minute q and each idle minute 1 − q, so lower is better. "Best possible" knows the simulator's hidden rule; only random luck is left. The lookup table is the best simple rule (median-style P-point per doctor and visit type). Both models are listed; the bold row is the model chosen above.</p>
     <div class="seg" role="group" aria-label="Safety level">
       <button type="button" data-rq="0.67" aria-pressed="false">P67</button>
       <button type="button" data-rq="0.75" aria-pressed="true">P75</button>
@@ -82,10 +84,11 @@
       <li><b>Simulated data.</b> The method is real; the numbers are from a simulated hospital. A real deployment retrains on the hospital's EMR export.</li>
       <li><b>Changes after training.</b> Dermatology visits got longer from 1 July; the model, trained on January–June, books them too short. Monthly retraining and a drift monitor fix this.</li>
       <li><b>New doctors.</b> A doctor with no history gets the department's typical slot until a few weeks of their visits exist, then the model is retrained.</li>
+      <li><b>LightGBM or XGBoost.</b> On June data (A7) LightGBM scored slightly better at every safety level and is faster, so it went forward; the two book the same slot for over 90% of June visits. XGBoost is here for comparison. Switching to it because of the July–August numbers would mean choosing on the test months, which the test is meant to rule out.</li>
       <li><b>The safety level is a business decision.</b> P67, P75 or P80 trades patient waiting against doctor idle time; the product owner picks from the table above.</li>
       <li><b>Safe rollout.</b> Run in shadow mode first (predict, compare, don't book), keep 15 minutes as the fallback if the model is unavailable.</li>
     </ul>
-    <p class="say sub">Inputs used, all known at booking time: doctor, department, visit type, clinic, weekday, hour, patient age (or unknown), prior reports, interpreter, video consult. Model: LightGBM with the quantile objective, one model per safety level; chosen over XGBoost and simple lookup tables on June data.</p>
+    <p class="say sub">Inputs used, all known at booking time: doctor, department, visit type, clinic, weekday, hour, patient age (or unknown), prior reports, interpreter, video consult. Models: LightGBM and XGBoost with the quantile objective, one model per safety level, both trained the same way; LightGBM was chosen over XGBoost and simple lookup tables on June data. Visit types offered: new and follow-up (report-review visits in the history still count in the results).</p>
   </div>
 </section>
 
@@ -117,19 +120,22 @@ const QD = RS.demo_test.q, PO = new Set(QK);
 const PICK = "0.75";   /* provisional default (config.Q_SAFE) until the product owner chooses */
 $("fQ").innerHTML = QD.map(q => `<option value="${q}">${QN(q)}${q === "0.50" ? " · typical length (median)" : ""}${PO.has(q) ? " ★ PO candidate" : ""}${q === PICK ? " (provisional default)" : ""}</option>`).join("");
 $("fQ").value = PICK;
-const qSel = () => $("fQ").value, grid = () => +$("fGrid").value;
+const qSel = () => $("fQ").value, grid = () => +$("fGrid").value, mSel = () => $("fModel").value;
 const segR = (attr, init, fn) => { let v = init; document.querySelectorAll(`[${attr}]`).forEach(b => b.addEventListener("click", () => {
   v = b.getAttribute(attr); document.querySelectorAll(`[${attr}]`).forEach(x => x.setAttribute("aria-pressed", x === b)); fn(v); })); return () => v; };
 
-/* ---------- the model: walk each tree, add the leaves (identical to LightGBM's predict) ---------- */
+/* ---------- the models: walk each tree, add the leaves (identical to LightGBM's / XGBoost's predict) ---------- */
+/* LightGBM sends a number left when x <= t; XGBoost when x < lt, and starts from an intercept (base). */
 function walk(n, x) {
   while (!("v" in n)) {
     const v = x[n.f];
-    n = n.c ? (v >= 0 && n.c.includes(v) ? n.l : n.r) : (v <= n.t ? n.l : n.r);
+    n = n.c ? (v >= 0 && n.c.includes(v) ? n.l : n.r) : ("lt" in n ? (v < n.lt ? n.l : n.r) : (v <= n.t ? n.l : n.r));
   }
   return n.v;
 }
-const predictQ = (q, x) => M.models[q].reduce((s, t) => s + walk(t, x), 0);
+const sumTrees = (trees, x) => trees.reduce((s, t) => s + walk(t, x), 0);
+const PREDICT = { LightGBM: (q, x) => sumTrees(M.models[q], x), XGBoost: (q, x) => M.xgb_models[q].base + sumTrees(M.xgb_models[q].trees, x) };
+const MODELS = Object.keys(PREDICT), otherModel = m => MODELS.find(n => n !== m);
 const book = (p, g = grid()) => Math.max(Math.ceil(p / g - 1e-9) * g, g);
 
 /* ---------- the form ---------- */
@@ -169,25 +175,30 @@ function updDemo() {
   if (problem) { $("slots").innerHTML = ""; $("bkSay").textContent = ""; return; }
   const x = encode(b);
   /* one model per safety level; the running maximum keeps a higher level from predicting less */
-  let run = -Infinity;
-  const raw = Object.fromEntries(QD.map(k => { const v = b.isNew ? M.backoff[k][`${b.dept}|${b.visit}`] : predictQ(k, x); run = Math.max(run, v); return [k, run]; }));
+  const levels = name => { let run = -Infinity;
+    return Object.fromEntries(QD.map(k => { const v = b.isNew ? M.backoff[k][`${b.dept}|${b.visit}`] : PREDICT[name](k, x); run = Math.max(run, v); return [k, run]; })); };
+  const all = Object.fromEntries(MODELS.map(name => [name, levels(name)]));
+  const mod = mSel(), raw = all[mod], other = all[otherModel(mod)];
   const q = qSel(), g = grid();
   $("slots").innerHTML =
     `<div class="slot today"><span class="lvl">TODAY'S RULE</span><span class="book">15 <small>min</small></span><span class="raw">same for every visit</span></div>` +
     `<div class="slot"><span class="lvl">TYPICAL LENGTH (P50)</span><span class="book">${f(raw["0.50"], 1)} <small>min</small></span><span class="raw">half of such visits are shorter</span></div>` +
     `<div class="slot pick"><span class="lvl">BOOK AT ${QN(q)}${PO.has(q) ? " ★" : ""}</span><span class="book">${book(raw[q])} <small>min</small></span>` +
-    `<span class="raw">model: ${f(raw[q], 1)} min, rounded up to ${g === 1 ? "the minute" : g + "-minute blocks"} · about ${Math.round(+q * 100)}% of such visits fit</span></div>`;
-  $("allQBody").innerHTML = QD.map(k => `<tr${k === q ? ' class="pick"' : ""}><td>${QN(k)}${PO.has(k) ? " ★" : ""}</td><td class="num">${f(raw[k], 1)} min</td><td class="num">${book(raw[k])} min</td>` +
+    `<span class="raw">${mod}: ${f(raw[q], 1)} min, rounded up to ${g === 1 ? "the minute" : g + "-minute blocks"} · about ${Math.round(+q * 100)}% of such visits fit</span>` +
+    (b.isNew ? "" : `<span class="raw">${otherModel(mod)} would book ${book(other[q])} min (${f(other[q], 1)})</span>`) + `</div>`;
+  $("allQModel").textContent = mod;
+  $("allQBody").innerHTML = QD.map(k => `<tr${k === q ? ' class="pick"' : ""}><td>${QN(k)}${PO.has(k) ? " ★" : ""}</td><td class="num">${f(all.LightGBM[k], 1)} min</td><td class="num">${f(all.XGBoost[k], 1)} min</td><td class="num">${book(raw[k])} min</td>` +
     `<td>${k === "0.50" ? "half of such visits run longer" : "about " + (100 - Math.round(+k * 100)) + " in 100 run longer"}</td></tr>`).join("");
   const day = DAYS[b.weekday];
   $("bkSay").innerHTML = (b.isNew
-      ? `<b>New doctor:</b> the model has no history for them, so this is the typical slot for a ${b.dept} ${b.visit} visit (the department fallback).`
+      ? `<b>New doctor:</b> neither model has history for them, so this is the typical slot for a ${b.dept} ${b.visit} visit (the department fallback), the same for both models.`
       : `Dr ${b.doctor} (${b.dept}), ${b.visit} visit, ${day} ${$("fTime").value} at ${b.clinic}, ${b.reports} report${b.reports === 1 ? "" : "s"}${b.interp ? ", interpreter" : ""}${b.tele ? ", video" : ""}, age ${b.ageUnknown ? "unknown" : b.age}.`) +
     (g > 1 && book(raw["0.50"]) === book(raw["0.90"]) ? ` Every safety level books the same ${book(raw[q])} minutes here: from P50 to P90 the predictions differ by less than one ${g}-minute block.` : "") +
     ` The product owner sets the final safety level.`;
   updTrade();
 }
-registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele", "fQ", "fGrid"]);
+registerLab(updDemo, ["fDoctor", "fDept", "fVisit", "fClinic", "fDate", "fTime", "fAge", "fAgeUnknown", "fReports", "fInterp", "fTele", "fQ", "fGrid", "fModel"]);
+$("fModel").addEventListener("input", () => { updBoard(); updSlices(); });
 $("bk").addEventListener("submit", e => e.preventDefault());
 
 /* ---------- results: trade-off table ---------- */
@@ -202,12 +213,13 @@ const TODAY = summarise(() => 15);
 const tradeChart = makeChart("tradeChart", "doctor idle minutes per visit", "visits on time", { ymax: 1 });
 tradeChart.options.scales.y.ticks = { callback: v => pct(v) };
 function updTrade() {
-  const g = grid(), q = qSel();
+  const g = grid(), q = qSel(), mod = mSel();
   $("gridName").textContent = g === 1 ? "1-minute" : g + "-minute";
-  const rows = QD.map(k => [k, summarise(i => book(DT.pred[k][i], g))]);
+  document.querySelectorAll(".modelName").forEach(el => el.textContent = mod);
+  const rows = QD.map(k => [k, summarise(i => book(DT.pred[mod][k][i], g))]);
   const cell = r => `<td class="num">${pct(r.on_time)}</td><td class="num">${f(r.late_min, 2)}</td><td class="num">${f(r.idle_min, 2)}</td><td class="num">${f(r.slot_min, 1)}</td><td class="num">${f(r.patients, 1)}</td>`;
   $("tradeoff").innerHTML = `<tr><td>Today: 15 minutes for everyone</td>${cell(TODAY)}</tr>` +
-    rows.map(([k, r]) => `<tr${k === q ? ' class="pick"' : ""}><td>Model ${QN(k)}${PO.has(k) ? " ★" : ""}</td>${cell(r)}</tr>`).join("");
+    rows.map(([k, r]) => `<tr${k === q ? ' class="pick"' : ""}><td>${mod} ${QN(k)}${PO.has(k) ? " ★" : ""}</td>${cell(r)}</tr>`).join("");
   const tp = rows.find(r => r[0] === q)[1];
   $("tradeSay").innerHTML = `At ${QN(q)} on a ${g === 1 ? "1-minute" : g + "-minute"} grid, <b>${pct(tp.on_time)}</b> of visits finish within their slot (today ${pct(TODAY.on_time)}) and late minutes per visit are <b>${f(tp.late_min, 2)}</b> (today ${f(TODAY.late_min, 2)}). ` +
     (tp.patients < TODAY.patients ? `The price: ${f(tp.slot_min, 1)}-minute slots on average, about <b>${f(TODAY.patients - tp.patients, 1)} fewer patients</b> per 4-hour session.`
@@ -216,7 +228,7 @@ function updTrade() {
   const A = css("--accent"), M2 = css("--muted"), L = css("--late");
   const pts = rows.map(([, r]) => ({ x: r.idle_min, y: r.on_time }));
   tradeChart.data.datasets = [
-    line("Model, P50 → P90", pts, A, { pointRadius: 3 }),
+    line(`${mod}, P50 → P90`, pts, A, { pointRadius: 3 }),
     { label: "Chosen: " + QN(q), data: [{ x: tp.idle_min, y: tp.on_time }], pointRadius: 7, backgroundColor: L, borderColor: L },
     { label: "Today (15 min)", data: [{ x: TODAY.idle_min, y: TODAY.on_time }], pointRadius: 7, pointStyle: "rectRot", backgroundColor: M2, borderColor: M2 },
   ];
@@ -228,13 +240,14 @@ function updTrade() {
 
 /* ---------- quality board ---------- */
 const NAMES = { "today (fixed 15)": "Today: 15 minutes", "B3 lookup table": "Lookup table (doctor + visit type)",
-  "LightGBM": "LightGBM alone", "LightGBM + new-doctor backoff": "Model (LightGBM + new-doctor fallback)", "Oracle (floor)": "Best possible" };
+  "LightGBM": "LightGBM alone", "LightGBM + new-doctor backoff": "LightGBM + new-doctor fallback",
+  "XGBoost": "XGBoost alone", "XGBoost + new-doctor backoff": "XGBoost + new-doctor fallback", "Oracle (floor)": "Best possible" };
 const rq = segR("data-rq", PICK, () => updBoard());
 function updBoard() {
-  const q = +rq(), rows = RS.board.filter(r => Math.abs(r.q - q) < 1e-9);
-  $("board").innerHTML = rows.map(r => `<tr${r.method.startsWith("LightGBM +") ? ' class="pick"' : ""}><td>${NAMES[r.method]}</td><td class="num">${f(r.pinball, 3)}</td><td class="num">${pct(r.booked_on_time, 1)}</td><td class="num">${f(r.booked_idle_min, 2)}</td></tr>`).join("");
-  const g = n => rows.find(r => r.method === n).pinball, today = g("today (fixed 15)"), model = g("LightGBM + new-doctor backoff"), best = g("Oracle (floor)"), lt = g("B3 lookup table");
-  $("boardSay").innerHTML = `The model closes <b>${pct((today - model) / (today - best))}</b> of the gap between today's rule and the best possible score, and <b>${pct((lt - model) / (lt - best))}</b> of the gap left by the best simple lookup table.`;
+  const q = +rq(), mod = mSel(), rows = RS.board.filter(r => Math.abs(r.q - q) < 1e-9);
+  $("board").innerHTML = rows.map(r => `<tr${r.method === mod + " + new-doctor backoff" ? ' class="pick"' : ""}><td>${NAMES[r.method]}</td><td class="num">${f(r.pinball, 3)}</td><td class="num">${pct(r.booked_on_time, 1)}</td><td class="num">${f(r.booked_idle_min, 2)}</td></tr>`).join("");
+  const g = n => rows.find(r => r.method === n).pinball, today = g("today (fixed 15)"), model = g(mod + " + new-doctor backoff"), best = g("Oracle (floor)"), lt = g("B3 lookup table");
+  $("boardSay").innerHTML = `${mod} (with the new-doctor fallback) closes <b>${pct((today - model) / (today - best))}</b> of the gap between today's rule and the best possible score, and <b>${pct((lt - model) / (lt - best))}</b> of the gap left by the best simple lookup table.`;
 }
 registerLab(updBoard);
 
@@ -251,14 +264,15 @@ function updSlices() {
   sliceChart.data.labels = labels;
   sliceChart.data.datasets = [
     { label: "Today (15 min)", data: val("today (fixed 15)"), backgroundColor: hexA(css("--muted"), 0.55) },
-    { label: "Model", data: val("LightGBM + new-doctor backoff"), backgroundColor: hexA(css("--accent"), 0.85) },
+    ...MODELS.map(name => ({ label: name, data: val(name + " + new-doctor backoff"),
+      backgroundColor: hexA(css("--accent"), name === mSel() ? 0.85 : 0.35) })),
   ];
   paint(sliceChart);
-  const m = "LightGBM + new-doctor backoff", der = dep.Dermatology[m], newd = nd["new doctor (Nikhil Verma)"], known = nd["known doctors"][m];
+  const mod = mSel(), m = mod + " + new-doctor backoff", der = dep.Dermatology[m], newd = nd["new doctor (Nikhil Verma)"], known = nd["known doctors"][m];
   $("findings").innerHTML = [
-    `<li><b>Known doctors:</b> ${pct(known.on_time)} of visits finish on time with the model, against ${pct(nd["known doctors"]["today (fixed 15)"].on_time)} today. Neurology gains most: today's 15 minutes fits only ${pct(dep.Neurology["today (fixed 15)"].on_time)} of its visits.</li>`,
+    `<li><b>Known doctors:</b> ${pct(known.on_time)} of visits finish on time with ${mod}, against ${pct(nd["known doctors"]["today (fixed 15)"].on_time)} today. Neurology gains most: today's 15 minutes fits only ${pct(dep.Neurology["today (fixed 15)"].on_time)} of its visits.</li>`,
     `<li><b>Dermatology</b> is the weak spot (${pct(der.on_time)} on time): its visits got about 3 minutes longer from 1 July, after the training months. Retraining on July data fixes it; a monitor should catch changes like this.</li>`,
-    `<li><b>The new doctor</b> (no visits before July) gets the department fallback: ${pct(newd[m].on_time)} on time, against ${pct(newd["LightGBM"].on_time)} if the model guessed blindly. He is slower than his department's average, so his slots stay short until his own visits are in the training data.</li>`,
+    `<li><b>The new doctor</b> (no visits before July) gets the department fallback: ${pct(newd[m].on_time)} on time, against ${pct(newd[mod].on_time)} if ${mod} guessed on its own. He is slower than his department's average, so his slots stay short until his own visits are in the training data.</li>`,
   ].join("");
 }
 registerLab(updSlices);
