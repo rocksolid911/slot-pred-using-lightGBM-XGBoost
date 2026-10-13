@@ -57,7 +57,11 @@ LESSONS = [
          name="The final test", stage="Stage 6 · Evaluate", note="notes/A08-final-test.md",
          summary="One honest look at July–August: why only once, the trade-off table for the PO, and the drift June could not show.",
          labs=["Why only once", "Trade-off table", "Drift and new doctor"]),
-    dict(id="A9", status="now", name="Tuning, SHAP, fairness", stage="Stage 7 · Select", summary="Did the model find the hidden rule? Model card."),
+    dict(id="A9", slug="A09-explain", src="A09.html", status="now", data=True, title="A9 Explain Lab",
+         name="Opening up the model", stage="Stage 7 · Select", note="notes/A09-explain.md",
+         summary="Part 1: every prediction is a starting point plus one push per column (SHAP), checked against the hidden rule. Parts 2–3 (fairness, tuning, model card) follow.",
+         labs=["One visit, column by column", "Which columns matter", "Video: model vs rule"]),
+
     dict(id="A10", name="Experiment tracking", stage="Cross-cutting", summary="MLflow runs and model versions."),
     dict(id="A11", name="Serving", stage="Stage 8 · Deploy", summary="FastAPI, container, shadow mode and a fallback."),
     dict(id="A12", name="Monitoring", stage="Stage 9 · Monitor", summary="Catch the July drift: new doctor, Dermatology protocol."),
@@ -128,6 +132,7 @@ def slot_data():
         "lgbm": lgbm_data(),
         "xgb": xgb_data(),
         "final": final_data(),
+        "explain": explain_data(),
     }
 
 
@@ -161,6 +166,48 @@ def xgb_data():
                            "hist": np.histogram(np.clip(d, -3, 3), bins=np.arange(-3, 3.01, 0.25))[0].tolist()}
     del out["LightGBM"], out["XGBoost"]
     return out
+
+
+def explain_data():
+    """A9 part 1: each test visit's prediction split into pushes (LightGBM's own SHAP values), the average
+    push per column, and video's push next to the hidden rule's. Computed here directly with
+    pred_contrib, so the page doesn't depend on the TODO(you) functions in slotpred/explain.py."""
+    import pandas as pd
+    from scipy.stats import norm
+
+    from slotpred.config import Q_CANDIDATES
+    from slotpred.explain import final_model, test_table
+    from slotpred.final import FINAL
+    from slotpred.world import NOISE_SIGMA, TELE_FACTOR
+
+    DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    if not (FINAL / "lgbm_q0.80.txt").exists():
+        return None
+    X, v = test_table()
+    cols = list(X.columns)
+    contrib = {q: final_model(q).predict(X, pred_contrib=True) for q in Q_CANDIDATES}
+    # a fixed, varied sample of visits for the picker; the A9 worked example first
+    example = v.index[(v.doctor == "Deepak Rao") & (v.visit_type == "follow-up") & v.teleconsult.astype(bool)
+                      & (v.clinic == "HSR") & (v.age == 46)]
+    rest = v.drop(index=example).groupby(["department", "visit_type"], group_keys=False).sample(2, random_state=9).index
+    picks = list(example[:1]) + sorted(rest, key=lambda i: (v.department[i], v.visit_type[i]))
+    visits = []
+    for i in picks:
+        r = v.loc[i]
+        visits.append({"label": f'{r.department}, {r.visit_type}{" (video)" if r.teleconsult else ""}, Dr {r.doctor}, '
+                                f'age {"unknown" if pd.isna(r.age) else int(r.age)}, {int(r.prior_reports)} reports, '
+                                f'{DAYS[pd.Timestamp(r.date).weekday()][:3]} {r.slot_time}, {r.clinic}',
+                       "actual": round(float(r.minutes), 1),
+                       "push": {str(q): [round(float(x), 3) for x in contrib[q][i]] for q in Q_CANDIDATES}})
+    video = v.teleconsult.astype(bool).to_numpy()
+    k = np.exp(-NOISE_SIGMA ** 2 / 2 + norm.ppf(0.8) * NOISE_SIGMA)
+    rule = v.in_person_minutes.to_numpy()[video] * (TELE_FACTOR - 1) * k
+    model = contrib[0.8][video, cols.index("teleconsult")]
+    return {"cols": cols, "visits": visits,
+            "avg": {str(q): [round(float(x), 3) for x in np.abs(contrib[q][:, :-1]).mean(0)] for q in Q_CANDIDATES},
+            "video": {"rule": [round(float(x), 2) for x in rule], "model": [round(float(x), 2) for x in model],
+                      "share": round(float(video.mean()), 3), "factor": round(float(k), 3)}}
 
 
 def final_data():

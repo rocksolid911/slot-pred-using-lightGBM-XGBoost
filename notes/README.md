@@ -9,7 +9,7 @@ Your revision material for the project. One file per lesson, all following [_TEM
 
 Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md) for every formula on one page.
 
-**Play with it:** every lesson has its own interactive lab page (sliders, live formulas, charts, heatmaps), listed on the hub [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf): [A1 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc), [A2 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA), [A3 labs](https://claude.ai/artifact/Qwyogp2WiEn824VPTSAWMK), [A4 labs](https://claude.ai/artifact/1u2Bvgmm571WYeeZF7DTut), [A5 labs](https://claude.ai/artifact/CgLBFQoQyi2qeuuAf75qnv), [A6 labs](https://claude.ai/artifact/YGw6XDpTAsFu573Ymgmjmm), [A7 labs](https://claude.ai/artifact/TaYVHKoQexdPxaqWcjhjf7), [A8 labs](https://claude.ai/artifact/L2zqZxrAXMbifjV7qUQPLQ). Offline copies are in [interactive/](interactive/); open any `.html` in a browser. After changing `slotpred/world.py`, rebuild them with `.venv/Scripts/python.exe notes/interactive/build.py`.
+**Play with it:** every lesson has its own interactive lab page (sliders, live formulas, charts, heatmaps), listed on the hub [OPD Slot Lab](https://claude.ai/artifact/9KwYwYZDJCDgN3XbP8vSLf): [A1 labs](https://claude.ai/artifact/Qz3MtpX7sH92HrzuFmnrDc), [A2 labs](https://claude.ai/artifact/T2dBm3dy42pdyJWyDr14mA), [A3 labs](https://claude.ai/artifact/Qwyogp2WiEn824VPTSAWMK), [A4 labs](https://claude.ai/artifact/1u2Bvgmm571WYeeZF7DTut), [A5 labs](https://claude.ai/artifact/CgLBFQoQyi2qeuuAf75qnv), [A6 labs](https://claude.ai/artifact/YGw6XDpTAsFu573Ymgmjmm), [A7 labs](https://claude.ai/artifact/TaYVHKoQexdPxaqWcjhjf7), [A8 labs](https://claude.ai/artifact/L2zqZxrAXMbifjV7qUQPLQ), [A9 labs](https://claude.ai/artifact/YJ73pHXqaT7RqCbgMKdxRv). Offline copies are in [interactive/](interactive/); open any `.html` in a browser. After changing `slotpred/world.py`, rebuild them with `.venv/Scripts/python.exe notes/interactive/build.py`.
 
 **Monday deliverable:** [OPD Slot Predictor](https://claude.ai/artifact/JHXNTJyURvBknp3ZZVPE8Q): the trained model as a live booking → slot demo, with the July–August results ([A08-final-test.md](A08-final-test.md)).
 
@@ -27,7 +27,7 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 | A6 | 5 Train | LightGBM with the quantile objective | [A06-lightgbm.md](A06-lightgbm.md) | ✅ done |
 | A7 | 5 Train | XGBoost comparison | [A07-xgboost.md](A07-xgboost.md) | ✅ done |
 | A8 | 6 Evaluate | Final test, trade-off, drift | [A08-final-test.md](A08-final-test.md) | ✅ done |
-| A9 | 7 Select | Tuning, SHAP, fairness slices, model card | | ▶️ next |
+| A9 | 7 Select | SHAP (part 1), fairness slices, tuning, model card | [A09-explain.md](A09-explain.md) | ✍️ part 1: TODOs, notebook, In my words |
 | A10 | Cross-cutting | Experiment tracking with MLflow | | |
 | A11 | 8 Deploy | FastAPI, container, shadow mode | | |
 | A12 | 9 Monitor | Drift and weekly performance | | |

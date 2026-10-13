@@ -1,0 +1,146 @@
+<nav class="labs" aria-label="Labs in this lesson">
+  <a href="#lab-one">9.1 One visit, column by column</a>
+  <a href="#lab-avg">9.2 Which columns matter</a>
+  <a href="#lab-video">9.3 Video: model vs hidden rule</a>
+</nav>
+
+<section class="lesson">
+  <div class="lesson-head">
+    <h2>A starting point plus one push per column</h2>
+    <p>Every prediction the model makes can be split exactly into a <b>starting point</b> (its average prediction, the same for every visit) plus one <b>push</b> per column: how many minutes that column moves <i>this</i> visit up or down. The pushes add up exactly to the prediction. They are called SHAP values; LightGBM computes them itself. Because we wrote the simulator, we can also check a push against the hidden rule.</p>
+  </div>
+
+  <div class="lab" id="lab-one">
+    <div class="lab-head"><span class="tag">Lab 9.1</span><h3>One visit, column by column</h3></div>
+    <p class="say">Pick a July–August visit. Each bar starts where the previous one ended: orange-red pushes the slot longer, blue shorter. The last bar is the model's prediction. The first visit is the worked example from the notes.</p>
+    <div class="controls">
+      <div class="ctl"><label for="exVisit">Visit</label><select id="exVisit"></select></div>
+    </div>
+    <div class="seg" role="group" aria-label="q">
+      <button type="button" data-eq="0.67" aria-pressed="false">P67</button>
+      <button type="button" data-eq="0.75" aria-pressed="false">P75</button>
+      <button type="button" data-eq="0.8" aria-pressed="true">P80</button>
+    </div>
+    <div class="chart"><canvas id="exChart" aria-label="Pushes for one visit, from the starting point to the prediction"></canvas></div>
+    <div class="stats">
+      <div class="stat"><span>Starting point</span><strong id="exStart"></strong></div>
+      <div class="stat"><span>Prediction</span><strong id="exPred"></strong></div>
+      <div class="stat"><span>Slot booked (5-min grid)</span><strong id="exSlot"></strong></div>
+      <div class="stat"><span>Actual minutes</span><strong id="exActual"></strong></div>
+    </div>
+    <p class="say" id="exSay"></p>
+  </div>
+
+  <div class="lab" id="lab-avg">
+    <div class="lab-head"><span class="tag">Lab 9.2</span><h3>Which columns matter, on average</h3></div>
+    <p class="say">The size of each column's push, averaged over all 11,664 test visits (up and down both count as size). A big average means the column moves many visits a lot. A small average can still hide big pushes for a few visits.</p>
+    <div class="seg" role="group" aria-label="q">
+      <button type="button" data-aq="0.67" aria-pressed="false">P67</button>
+      <button type="button" data-aq="0.75" aria-pressed="false">P75</button>
+      <button type="button" data-aq="0.8" aria-pressed="true">P80</button>
+    </div>
+    <div class="chart short"><canvas id="avgChart" aria-label="Average size of each column's push"></canvas></div>
+    <p class="say" id="avgSay"></p>
+  </div>
+
+  <div class="lab" id="lab-video">
+    <div class="lab-head"><span class="tag">Lab 9.3</span><h3>Video: what the model found vs the hidden rule</h3></div>
+    <p class="say">The rule (A2): video multiplies the visit's minutes by 0.80. For a visit of <i>m</i> minutes in person, its true push on the P80 is <i>m</i> × (0.80 − 1) × 1.217. Each dot is one video visit from July–August: across, the rule's push; up, the push the model found. On the dashed line the model is exactly right.</p>
+    <div class="controls">
+      <div class="ctl"><label for="vidM">A visit of this many minutes in person <output id="vidMOut"></output></label><input type="range" id="vidM" min="4" max="20" step="0.5" value="7"></div>
+    </div>
+    <div class="chart"><canvas id="vidChart" aria-label="Video push: model against the hidden rule"></canvas></div>
+    <div class="stats">
+      <div class="stat"><span>Rule's push for that visit</span><strong id="vidRule"></strong></div>
+      <div class="stat"><span>Model, video visits of similar length</span><strong id="vidModel"></strong></div>
+      <div class="stat"><span>Video share of visits</span><strong id="vidShare"></strong></div>
+    </div>
+    <p class="say" id="vidSay"></p>
+  </div>
+</section>
+
+<script>
+const E9 = D.explain, NICE = { department: "department", visit_type: "visit type", doctor: "doctor", clinic: "clinic", age: "age",
+  age_missing: "age unknown", teleconsult: "video", prior_reports: "prior reports", weekday: "weekday", hour: "hour" };
+const nice = c => NICE[c] || c;
+
+/* ---------- Lab 9.1: waterfall for one visit ---------- */
+E9.visits.forEach((v, i) => $("exVisit").add(new Option((i === 0 ? "★ " : "") + v.label, i)));
+let eq = "0.8";
+document.querySelectorAll("[data-eq]").forEach(b => b.addEventListener("click", () => {
+  eq = b.dataset.eq; document.querySelectorAll("[data-eq]").forEach(x => x.setAttribute("aria-pressed", x === b)); updOne();
+}));
+const exChart = new Chart($("exChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false },
+    tooltip: { callbacks: { label: c => c.raw.note } } },
+  scales: { x: { title: { display: true, text: "minutes" } }, y: { ticks: { autoSkip: false } } } } });
+function updOne() {
+  const v = E9.visits[+$("exVisit").value], p = v.push[eq] ?? v.push[String(+eq)], start = p[p.length - 1];
+  const items = E9.cols.map((c, i) => [c, p[i]]).filter(r => Math.abs(r[1]) >= 0.005).sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+  const small = E9.cols.map((c, i) => [c, p[i]]).filter(r => Math.abs(r[1]) < 0.005);
+  let at = start; const bars = [{ x: [0, start], y: "start", note: `starting point ${f(start)} min` }];
+  for (const [c, x] of items) { bars.push({ x: [at, at + x], y: nice(c), note: `${nice(c)} ${x >= 0 ? "+" : ""}${f(x)} min` }); at += x; }
+  bars.push({ x: [0, at], y: "= prediction", note: `prediction ${f(at)} min` });
+  const up = css("--late"), down = css("--idle"), A = css("--accent");
+  exChart.data.labels = bars.map(b => b.y);
+  exChart.data.datasets = [{ data: bars.map(b => ({ x: b.x, y: b.y, note: b.note })), borderWidth: 0, barPercentage: 0.8,
+    backgroundColor: bars.map((b, i) => i === 0 || i === bars.length - 1 ? hexA(A, 0.8) : (b.x[1] >= b.x[0] ? hexA(up, 0.75) : hexA(down, 0.75))) }];
+  paint(exChart);
+  const slot = roundUp(at);
+  $("exStart").textContent = f(start, 1) + " min"; $("exPred").textContent = f(at, 1) + " min";
+  $("exSlot").textContent = slot + " min"; $("exActual").textContent = f(v.actual, 1) + " min";
+  const top = items[0], two = items.slice(0, 2).map(([c, x]) => `<b>${nice(c)}</b> (${x >= 0 ? "+" : ""}${f(x, 1)})`).join(" and ");
+  $("exSay").innerHTML = `The biggest pushes here are ${two}. ` +
+    (small.length ? `${small.map(r => nice(r[0])).join(", ")} barely move${small.length === 1 ? "s" : ""} this visit. ` : "") +
+    `Starting point ${f(start, 1)} + all pushes = <b>${f(at, 1)} min</b>, booked as ${slot}. ` +
+    (v.actual <= slot ? `It actually took ${f(v.actual, 1)} min, so it fit.` : `It actually took ${f(v.actual, 1)} min and ran over: at P${Math.round(+eq * 100)}, about ${100 - Math.round(+eq * 100)} in 100 visits like this are expected to.`);
+}
+registerLab(updOne, ["exVisit"]);
+
+/* ---------- Lab 9.2: average push per column ---------- */
+let aq = "0.8";
+document.querySelectorAll("[data-aq]").forEach(b => b.addEventListener("click", () => {
+  aq = b.dataset.aq; document.querySelectorAll("[data-aq]").forEach(x => x.setAttribute("aria-pressed", x === b)); updAvg();
+}));
+const avgChart = new Chart($("avgChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false } },
+  scales: { x: { title: { display: true, text: "average size of the push, minutes" } }, y: { ticks: { autoSkip: false } } } } });
+function updAvg() {
+  const a = E9.avg[aq] ?? E9.avg[String(+aq)], rows = E9.cols.map((c, i) => [c, a[i]]).sort((x, y) => y[1] - x[1]);
+  avgChart.data.labels = rows.map(r => nice(r[0]));
+  avgChart.data.datasets = [{ data: rows.map(r => r[1]), backgroundColor: hexA(css("--accent"), 0.75), borderWidth: 0 }];
+  paint(avgChart);
+  const get = c => rows.find(r => r[0] === c)[1];
+  $("avgSay").innerHTML = `<b>${nice(rows[0][0])}</b> and <b>${nice(rows[1][0])}</b> move predictions most (${f(rows[0][1], 1)} and ${f(rows[1][1], 1)} min on average). ` +
+    `Two puzzles for your notebook answers: <b>department</b> is tiny (${f(get("department"), 2)}) although departments differ a lot (question 1), and <b>video</b> is tiny on average (${f(get("teleconsult"), 2)}) although it moved the worked example by about 1.5 minutes (question 2). Video is ${pct(E9.video.share, 1)} of visits.`;
+}
+registerLab(updAvg);
+
+/* ---------- Lab 9.3: video, model vs rule ---------- */
+bindOut("vidM", v => f(v, 1) + " min");
+const vidChart = makeChart("vidChart", "push from the hidden rule (min)", "push the model found (min)");
+const pts = E9.video.rule.map((r, i) => ({ x: r, y: E9.video.model[i] }));
+function updVideo() {
+  const m = +$("vidM").value, k = E9.video.factor, rule = m * (0.8 - 1) * k;
+  const near = pts.filter(p => Math.abs(p.x - rule) <= 0.25), avgNear = near.length ? near.reduce((s, p) => s + p.y, 0) / near.length : NaN;
+  const lo = Math.min(...pts.map(p => p.x), ...pts.map(p => p.y)) - 0.2, A = css("--accent"), INK = css("--ink"), WARN = css("--late");
+  vidChart.data.datasets = [
+    { label: "video visits (Jul–Aug)", data: pts, pointRadius: 2.5, backgroundColor: hexA(A, 0.35), borderWidth: 0 },
+    line("model = rule", [{ x: lo, y: lo }, { x: 0, y: 0 }], INK, { borderDash: [5, 4], borderWidth: 1.2 }),
+    vline("_your visit", rule, lo, 0, WARN, [2, 3]),
+  ];
+  paint(vidChart);
+  $("vidRule").textContent = f(rule, 2) + " min";
+  $("vidModel").textContent = near.length ? `${f(avgNear, 2)} min (${near.length} visits)` : "no visits that long";
+  $("vidShare").textContent = pct(E9.video.share, 1);
+  $("vidSay").innerHTML = near.length
+    ? `For a ${f(m, 1)}-minute visit the rule says video should take <b>${f(-rule, 2)} min</b> off the P80; the model takes off <b>${f(-avgNear, 2)}</b> on average for video visits of that size. ` +
+      (Math.abs(avgNear - rule) < 0.25 ? "Close: the model found this part of the rule. Slide to longer visits." :
+        `The model takes off only ${pct(avgNear / rule)} of what it should: for long visits it learned video as "about 1.5–2 minutes off" rather than "20% off". It books a little too much time for them (idle, not late: the safe side). Why it learned it that way is question 4: look at which visits get video in <code>simulate.py</code>.`)
+    : `Video visits this long are too rare to compare. Why are long video visits so rare? That is question 4.`;
+
+}
+registerLab(updVideo, ["vidM"]);
+
+startLabs();
+</script>
