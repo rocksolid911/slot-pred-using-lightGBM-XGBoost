@@ -1,14 +1,15 @@
 # A9 · Opening up the model (lifecycle stage 7: Select)
 
-> **Date:** 2026-10-13 · **Notebook:** [notebooks/A09_explain.ipynb](../notebooks/A09_explain.ipynb) · **Code:** [explain.py](../slotpred/explain.py) · **Lab page:** [A9 Explain Lab](https://claude.ai/artifact/YJ73pHXqaT7RqCbgMKdxRv) (offline: [interactive/A09-explain.html](interactive/A09-explain.html)) · **Git tag:** `lesson-A9`
+> **Date:** 2026-10-13 · **Notebooks:** [A09_explain.ipynb](../notebooks/A09_explain.ipynb) (part 1), [A09_fairness.ipynb](../notebooks/A09_fairness.ipynb) (part 2) · **Code:** [explain.py](../slotpred/explain.py), [fairness.py](../slotpred/fairness.py) · **Lab page:** [A9 Explain Lab](https://claude.ai/artifact/YJ73pHXqaT7RqCbgMKdxRv) (offline: [interactive/A09-explain.html](interactive/A09-explain.html)) · **Git tag:** `lesson-A9`
 
-A9 has three parts. **This note covers part 1**; parts 2 and 3 are added when you get there.
+A9 has three parts. **This note covers parts 1 and 2**; part 3 is added when you get there. Part 2 starts at [Part 2 · Is it fair to every group?](#part-2--is-it-fair-to-every-group).
 
 | Part | Question | Status |
 |---|---|---|
-| 1 | Why does the model say what it says? (SHAP) | **now** |
-| 2 | Is it fair to every group? (on-time rate by age, video, clinic…) | next |
-| 3 | Light tuning on June only, and a one-page model card | after that |
+| 1 | Why does the model say what it says? (SHAP) | ✅ done |
+| 2 | Is it fair to every group? (on-time rate by age, video, clinic…) | **now** |
+| 3 | Light tuning on June only, and a one-page model card | next |
+
 
 ## Where this fits (mind map)
 
@@ -142,3 +143,107 @@ SHAP values show how the model builds each prediction: it starts with a baseline
 
 ## New terms
 SHAP value (push), starting point (base value), additivity, explanation vs truth
+
+---
+
+# Part 2 · Is it fair to every group?
+
+## Where this fits (mind map)
+
+```
+A8     final model: 86% on time at P75 on Jul–Aug (today's 15 min: 70%)
+A9 p1  ✅ why it says what it says (pushes)
+A9 p2  HERE: does that 86% hold for EVERY group, or is someone quietly worse off?
+```
+
+## In one line
+**An average can hide a group.** Cut the results by groups that matter, check each against the average (beyond luck) and against today, and then find *where* each gap comes from.
+
+## Intuition (one idea at a time)
+
+### Idea 1: the average hides groups
+"86% on time" is over all 11,664 test visits. A group of babies or elderly patients could sit at 60% inside that average and nobody would notice. So we cut by groups that matter: patient age, visit type, video, clinic, department, new doctor.
+
+### Idea 2: is a gap real, or luck?
+A small group wobbles by luck alone (A5: a share from *n* visits jumps around by about $\sqrt{p(1-p)/n}$). The **luck band** is two of those wobbles: about 95% of lucky wobbles stay inside it.
+
+*Example:* overall 86%, a group of 461 babies: band = $2\sqrt{0.86 \times 0.14 / 461}$ = 0.032, so ±3.2 points. Babies are at 79%, 7 points below: more than luck.
+
+### Idea 3: two rulers, plus the promise
+- **Against the average:** is the group below it by more than its luck band? (flag ⚑)
+- **Against today:** is the group on time less often than with today's 15 minutes?
+- **Against the promise:** P75 promises about 75% before rounding (more after rounding up to 5 min). A group below that is not getting what the PO signed off.
+
+### Idea 4: where a gap comes from
+
+| Source | How to recognise it | Fixed by |
+|---|---|---|
+| **Drift** (the world changed in July) | the gap is in July–August but **not in June** | retraining, monitoring (A12–A13) |
+| **The booking grid** (rounding up to 5 min) | the group is covered about q **before** rounding; the gap appears **after** | nothing in the model: a booking-policy question |
+| **The model itself** | the group is short **even before** rounding, **in June too** | model work, or a business rule (e.g. a higher q for that group) |
+
+**Business setting:** how big a gap is acceptable, and whether a group gets a different q, is the PO's and the clinical lead's decision, like q itself (A1). We measure honestly; they decide.
+
+## Maths (every symbol explained)
+
+$$
+\text{band} = 2\sqrt{\frac{p(1-p)}{n}}, \qquad \text{gap} = \text{on\_time}_{\text{group}} - p, \qquad \text{flag} = \text{gap} < -\text{band}
+$$
+
+| Symbol | Meaning | Where it comes from |
+|---|---|---|
+| $p$ | the on-time share of **all** test visits | `visits.on_time.mean()`: 0.857 at P75 |
+| $n$ | number of visits in the group | `groupby(...).size()` |
+| on_time (group) | the group's on-time share | `groupby(...).on_time.mean()` |
+
+Worked example (65+, 1,188 visits, 81.9% on time): band = $2\sqrt{0.857 \times 0.143 / 1188}$ = 0.020; gap = 0.819 − 0.857 = −0.038; −0.038 < −0.020, so **flagged**.
+
+## Code
+| Piece | Where | Written by |
+|---|---|---|
+| `luck_band(p, n)`, `group_table(visits, group)` | [fairness.py](../slotpred/fairness.py) | me (TODO) |
+| `booked_test(q)`, `booked_june(q)`, the group columns | [fairness.py](../slotpred/fairness.py) | Claude |
+| Tests | [tests/test_fairness.py](../tests/test_fairness.py) | Claude |
+| Notebook sections 1–3 | [A09_fairness.ipynb](../notebooks/A09_fairness.ipynb) | me (run + answers) |
+
+## Our results (P75; final model on July–August, A6 model on June)
+
+| Flagged group | Visits | On time Jul–Aug | Band | On time June | June, before rounding | Today's 15 min |
+|---|---|---|---|---|---|---|
+| Dermatology | 1,011 | 69.7% | ±2.2 | 93.1% | 76.0% | 80.9% |
+| New doctor (Nikhil) | 532 | 69.0% | ±3.0 | – | – | 41.9% |
+| Babies 0–2 | 461 | 78.7% | ±3.3 | 86.5% | 68.1% | 51.4% |
+| 65+ | 1,188 | 81.9% | ±2.0 | 84.8% | 72.9% | 64.9% |
+| New visits | 5,049 | 82.7% | ±1.0 | 86.4% | 74.2% | 40.4% |
+| Jayanagar | 2,319 | 83.6% | ±1.5 | 85.5% | 71.4% | 61.9% |
+| HSR | 2,974 | 83.4% | ±1.3 | 90.0% | 75.4% | 69.4% |
+| *All visits* | *11,664* | *85.7%* | | *88.6%* | *≈ 75%* | *69.7%* |
+
+Which source explains each row is the notebook's questions. One extra fact for question 3: babies seen by the new doctor were on time 58% of the time; babies seen by known doctors 85%, against 91% for other children.
+
+## Gotchas
+- **Small groups need the luck band.** A 5-point gap is noise for 100 visits (band ±7) and real for 5,000 (band ±1).
+- **"Below today" isn't automatically harm.** Compare the slot length and the promise too.
+- **One cause can show up in several cuts.** The new doctor works only in Paediatrics, at HSR and Whitefield, so his gap also appears under babies and HSR. Check the overlaps before blaming a group.
+
+## Self-check
+<details><summary>Q1. A group of 100 visits is 5 points below the average (p = 0.86). Flag it?</summary>
+
+Band = 2√(0.86 × 0.14 / 100) = 0.069, ±6.9 points. A 5-point gap is inside it: not flagged, it could be luck.
+</details>
+
+<details><summary>Q2. A gap is in July–August but not in June. Which source is most likely?</summary>
+
+Drift: something changed in July. Retraining on recent data (A13) and monitoring (A12) are the fixes.
+</details>
+
+<details><summary>Q3. Who decides whether a group gets a higher q?</summary>
+
+The PO with the clinical lead: it's a business and clinical trade-off (more on time for that group vs longer slots), like q itself.
+</details>
+
+## In my words (part 2)
+<!-- Written by you, after the notebook: 3 lines. -->
+
+## New terms (part 2)
+fairness slice, luck band, gap, flag, drift vs grid vs model gap, promise (q before rounding)

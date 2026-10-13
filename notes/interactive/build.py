@@ -59,8 +59,9 @@ LESSONS = [
          labs=["Why only once", "Trade-off table", "Drift and new doctor"]),
     dict(id="A9", slug="A09-explain", src="A09.html", status="now", data=True, title="A9 Explain Lab",
          name="Opening up the model", stage="Stage 7 · Select", note="notes/A09-explain.md",
-         summary="Part 1: every prediction is a starting point plus one push per column (SHAP), checked against the hidden rule. Parts 2–3 (fairness, tuning, model card) follow.",
-         labs=["One visit, column by column", "Which columns matter", "Video: model vs rule"]),
+         summary="Part 1: every prediction is a starting point plus one push per column (SHAP), checked against the hidden rule. Part 2: is the on-time share fair to every group, and where does each gap come from? Part 3 (tuning, model card) follows.",
+         labs=["One visit, column by column", "Which columns matter", "Video: model vs rule", "Every group vs the average", "Where a gap comes from"]),
+
 
     dict(id="A10", name="Experiment tracking", stage="Cross-cutting", summary="MLflow runs and model versions."),
     dict(id="A11", name="Serving", stage="Stage 8 · Deploy", summary="FastAPI, container, shadow mode and a fallback."),
@@ -133,6 +134,7 @@ def slot_data():
         "xgb": xgb_data(),
         "final": final_data(),
         "explain": explain_data(),
+        "fairness": fairness_data(),
     }
 
 
@@ -208,6 +210,33 @@ def explain_data():
             "avg": {str(q): [round(float(x), 3) for x in np.abs(contrib[q][:, :-1]).mean(0)] for q in Q_CANDIDATES},
             "video": {"rule": [round(float(x), 2) for x in rule], "model": [round(float(x), 2) for x in model],
                       "share": round(float(video.mean()), 3), "factor": round(float(k), 3)}}
+
+
+def fairness_data():
+    """A9 part 2: on-time share per group (July-August final model, June A6 model, today's 15 min, and June
+    before rounding) for each candidate q. Computed directly, not with the TODO(you) functions."""
+    import pandas as pd
+
+    from slotpred import fairness as fa
+    from slotpred.config import Q_CANDIDATES
+    from slotpred.final import FINAL
+
+    if not (FINAL / "lgbm_q0.80.txt").exists():
+        return None
+    out = {"groups": fa.GROUPS, "q": {}}
+    for q in Q_CANDIDATES:
+        jul, jun = fa.booked_test(q), fa.booked_june(q)
+        per = {"overall": {"jul": round(float(jul.on_time.mean()), 4), "today": round(float(jul.today_on_time.mean()), 4),
+                           "jun": round(float(jun.on_time.mean()), 4), "n": int(len(jul))}}
+        for g in fa.GROUPS:
+            a = jul.groupby(g).agg(n=("on_time", "size"), jul=("on_time", "mean"), today=("today_on_time", "mean"), slot=("slot", "mean"))
+            b = jun.groupby(g).agg(jun=("on_time", "mean"), raw=("covered", "mean"))
+            t = a.join(b)
+            per[g] = [{"level": str(k), "n": int(r.n), **{c: (None if pd.isna(r[c]) else round(float(r[c]), 4))
+                                                        for c in ("jul", "today", "jun", "raw", "slot")}} for k, r in t.iterrows()]
+
+        out["q"][str(q)] = per
+    return out
 
 
 def final_data():

@@ -2,6 +2,8 @@
   <a href="#lab-one">9.1 One visit, column by column</a>
   <a href="#lab-avg">9.2 Which columns matter</a>
   <a href="#lab-video">9.3 Video: model vs hidden rule</a>
+  <a href="#lab-groups">9.4 Every group vs the average</a>
+  <a href="#lab-origin">9.5 Where a gap comes from</a>
 </nav>
 
 <section class="lesson">
@@ -56,6 +58,35 @@
       <div class="stat"><span>Video share of visits</span><strong id="vidShare"></strong></div>
     </div>
     <p class="say" id="vidSay"></p>
+  </div>
+  <div class="lab" id="lab-groups">
+    <div class="lab-head"><span class="tag">Lab 9.4</span><h3>Part 2 · Every group vs the average</h3></div>
+    <p class="say">The final model on the July–August test visits, cut into groups. Each bar is a group's share of visits on time with the model's booked slot; the grey bar is the same group with today's 15 minutes. A group marked ⚑ is below the average by more than its luck band (2 × √(p(1 − p)/n)).</p>
+    <div class="controls">
+      <div class="ctl"><label for="fgGroup">Cut the visits by</label><select id="fgGroup">
+        <option value="age_band">patient age</option><option value="visit_type">visit type</option><option value="video">video or in person</option>
+        <option value="clinic">clinic</option><option value="department">department</option><option value="new_doctor">new or known doctor</option></select></div>
+    </div>
+    <div class="seg" role="group" aria-label="q">
+      <button type="button" data-fq="0.67" aria-pressed="false">P67</button>
+      <button type="button" data-fq="0.75" aria-pressed="true">P75</button>
+      <button type="button" data-fq="0.8" aria-pressed="false">P80</button>
+    </div>
+    <div class="chart"><canvas id="fgChart" aria-label="On-time share per group, model vs today"></canvas></div>
+    <p class="say" id="fgSay"></p>
+  </div>
+
+  <div class="lab" id="lab-origin">
+    <div class="lab-head"><span class="tag">Lab 9.5</span><h3>Part 2 · Where a gap comes from</h3></div>
+    <p class="say">Same groups as 9.4. Three columns tell the sources apart: <b>drift</b> shows in July–August but not in June; <b>the booking grid</b> leaves a group fine <i>before rounding</i> (about q) but behind after; <b>the model itself</b> is short even before rounding, in June too. Work out each flagged group yourself; that's the notebook's questions.</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Group</th><th class="num">Visits (Jul–Aug)</th><th class="num">On time Jul–Aug</th><th class="num">On time June</th><th class="num">June, before rounding</th><th class="num">Today's 15 min</th></tr></thead>
+      <tbody id="orTable"></tbody>
+    </table></div>
+    <div class="controls">
+      <div class="ctl"><label for="lbN">Luck band for a group of <output id="lbNOut"></output> visits</label><input type="range" id="lbN" min="50" max="5000" step="50" value="450"></div>
+    </div>
+    <p class="say" id="lbSay"></p>
   </div>
 </section>
 
@@ -141,6 +172,48 @@ function updVideo() {
 
 }
 registerLab(updVideo, ["vidM"]);
+
+/* ---------- Lab 9.4: every group vs the average ---------- */
+const F9 = D.fairness, GNAME = { age_band: "patient age", visit_type: "visit type", video: "video or in person", clinic: "clinic", department: "department", new_doctor: "new or known doctor" };
+let fq = "0.75";
+document.querySelectorAll("[data-fq]").forEach(b => b.addEventListener("click", () => {
+  fq = b.dataset.fq; document.querySelectorAll("[data-fq]").forEach(x => x.setAttribute("aria-pressed", x === b)); LAB_UPDATES.forEach(fn => fn.fair && fn());
+}));
+const band = (p, n) => 2 * Math.sqrt(p * (1 - p) / n);
+const fgChart = new Chart($("fgChart"), { type: "bar", data: { labels: [], datasets: [] }, options: {
+  indexAxis: "y", responsive: true, maintainAspectRatio: false, animation: false,
+  plugins: { legend: { labels: { boxWidth: 12 } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${pct(c.raw, 1)}` } } },
+  scales: { x: { min: 0.3, max: 1, title: { display: true, text: "share of visits on time" }, ticks: { callback: v => pct(v) } }, y: { ticks: { autoSkip: false } } } } });
+function fairRows() { const per = F9.q[fq] ?? F9.q[String(+fq)]; return { per, rows: [...per[$("fgGroup").value]].sort((a, b) => a.jul - b.jul) }; }
+function updGroups() {
+  const { per, rows } = fairRows(), all = per.overall.jul;
+  const flagged = rows.filter(r => r.jul - all < -band(all, r.n));
+  fgChart.data.labels = rows.map(r => (r.jul - all < -band(all, r.n) ? "⚑ " : "") + r.level);
+  fgChart.data.datasets = [
+    { label: `model (P${Math.round(+fq * 100)})`, data: rows.map(r => r.jul), backgroundColor: hexA(css("--accent"), 0.8), borderWidth: 0 },
+    { label: "today's 15 min", data: rows.map(r => r.today), backgroundColor: hexA(css("--muted"), 0.35), borderWidth: 0 }];
+  paint(fgChart);
+  const worse = rows.filter(r => r.jul < r.today);
+  $("fgSay").innerHTML = `Overall ${pct(all, 1)} on time (today's rule: ${pct(per.overall.today, 1)}). ` +
+    (flagged.length ? `Below the average by more than luck: ${flagged.map(r => `<b>${r.level}</b> ${pct(r.jul, 1)} (${r.n} visits, band ±${f(100 * band(all, r.n), 1)} points)`).join("; ")}. ` : "No group is below the average by more than luck. ") +
+    (worse.length ? `On time less often than with today's 15 minutes: ${worse.map(r => `<b>${r.level}</b> (${pct(r.jul)} vs ${pct(r.today)}, with an average slot of ${f(r.slot, 1)} min instead of 15${r.jul < +fq ? `, and below the P${Math.round(+fq * 100)} promise` : ""})`).join("; ")}.` : "Every group
+ here is on time more often than with today's 15 minutes.");
+
+}
+updGroups.fair = true;
+registerLab(updGroups, ["fgGroup"]);
+
+/* ---------- Lab 9.5: where a gap comes from ---------- */
+function updOrigin() {
+  const { per, rows } = fairRows(), all = per.overall.jul, q = +fq, cell = x => x == null ? "–" : pct(x, 1);
+  $("orTable").innerHTML = rows.map(r => `<tr${r.jul - all < -band(all, r.n) ? ' class="total"' : ""}><td>${r.jul - all < -band(all, r.n) ? "⚑ " : ""}${r.level}</td><td class="num">${r.n}</td><td class="num">${cell(r.jul)}</td><td class="num">${cell(r.jun)}</td><td class="num">${cell(r.raw)}</td><td class="num">${cell(r.today)}</td></tr>`).join("") +
+    `<tr><td>all visits</td><td class="num">${per.overall.n}</td><td class="num">${pct(all, 1)}</td><td class="num">${pct(per.overall.jun, 1)}</td><td class="num">≈ ${pct(q)}</td><td class="num">${pct(per.overall.today, 1)}</td></tr>`;
+  const n = +$("lbN").value, b = band(all, n);
+  $("lbSay").innerHTML = `With ${pct(all, 1)} on time overall, a group of <b>${n}</b> visits wobbles by about <b>±${f(100 * b, 1)} percentage points</b> by luck alone. Four times the visits halves the band (A5's 1/√n).`;
+}
+updOrigin.fair = true;
+bindOut("lbN", v => v);
+registerLab(updOrigin, ["fgGroup", "lbN"]);
 
 startLabs();
 </script>
