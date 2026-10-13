@@ -137,7 +137,8 @@ Not necessarily. It means the model uses that column to predict longer visits. H
 </details>
 
 ## In my words
-<!-- Written by you, after the notebook: 3 lines, as if teaching a friend. -->
+
+SHAP values show how the model builds each prediction: it starts with a baseline and then adds or subtracts a push for each feature. Because every doctor works in exactly one department, knowing the doctor already tells the model the department, so the doctor's push can include the department's effect as well as that doctor's own pace. A feature can have a small average push but a large effect for one particular visit, like video for the example visit. Video is used only for short follow-ups, usually 6–12 minutes in person, where a 20% reduction looks almost the same as subtracting about 1.5 minutes. The model therefore could not clearly distinguish the two rules and learned a roughly fixed reduction, which works for short visits but fails on the rare long video visits. The model covered the example visit correctly because its actual duration was below the P80 prediction.
 
 ## New terms
 SHAP value (push), starting point (base value), additivity, explanation vs truth

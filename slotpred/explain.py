@@ -1,7 +1,7 @@
 """Lesson A9, part 1: why does the model say what it says?
 
-Every prediction = a starting point + one PUSH per column (SHAP values). The pushes add up exactly
-to the prediction. Because we wrote the simulator, we can check a push against the hidden rule.
+Every prediction = a starting point + one PUSH per column (SHAP values (SHapley Additive exPlanations)).
+ The pushes add up exactly to the prediction. Because we wrote the simulator, we can check a push against the hidden rule.
 
     P = pushes(booster, X)              one row per visit, one column per feature, plus "start"
     video_push_by_rule(7.0, 0.8)        the true push of a video consult for a 7-minute in-person visit
@@ -33,7 +33,9 @@ def pushes(booster, X: pd.DataFrame) -> pd.DataFrame:
     Hint: booster.predict(X, pred_contrib=True) returns a NumPy array with one row per visit and
     len(X.columns) + 1 columns: one per column of X, then the starting point last.
     """
-    raise NotImplementedError("TODO(you): A9 part 1")
+    arr = booster.predict(X, pred_contrib=True)
+    cols = list(X.columns) + ["start"]
+    return pd.DataFrame(arr, index=X.index, columns=cols)
 
 
 def video_push_by_rule(in_person_minutes, q, sigma=NOISE_SIGMA):
@@ -50,7 +52,10 @@ def video_push_by_rule(in_person_minutes, q, sigma=NOISE_SIGMA):
     So the push = (q-point by video) - (q-point in person). It is negative: video is shorter.
     Example: 7.0 minutes in person, q = 0.8 -> about -1.70.
     """
-    raise NotImplementedError("TODO(you): A9 part 1")
+    z_q = norm.ppf(q)
+    in_person_q = in_person_minutes * np.exp(-sigma**2 / 2 + z_q * sigma)
+    video_q = in_person_q * TELE_FACTOR
+    return video_q - in_person_q
 
 
 # ---------------------------------------------------------------- Claude

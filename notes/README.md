@@ -27,7 +27,7 @@ Also see [GLOSSARY.md](GLOSSARY.md) for every term and [FORMULAS.md](FORMULAS.md
 | A6 | 5 Train | LightGBM with the quantile objective | [A06-lightgbm.md](A06-lightgbm.md) | ✅ done |
 | A7 | 5 Train | XGBoost comparison | [A07-xgboost.md](A07-xgboost.md) | ✅ done |
 | A8 | 6 Evaluate | Final test, trade-off, drift | [A08-final-test.md](A08-final-test.md) | ✅ done |
-| A9 | 7 Select | SHAP (part 1), fairness slices, tuning, model card | [A09-explain.md](A09-explain.md) | ✍️ part 1: TODOs, notebook, In my words |
+| A9 | 7 Select | SHAP (part 1), fairness slices, tuning, model card | [A09-explain.md](A09-explain.md) | ✅ part 1 · ▶️ part 2 (fairness) |
 | A10 | Cross-cutting | Experiment tracking with MLflow | | |
 | A11 | 8 Deploy | FastAPI, container, shadow mode | | |
 | A12 | 9 Monitor | Drift and weekly performance | | |
